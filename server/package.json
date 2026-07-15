@@ -1,0 +1,27 @@
+{
+  "name": "@cmc/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.0.8",
+    "chokidar": "5.0.0",
+    "hono": "4.12.30",
+    "ws": "8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "@types/ws": "8.18.1",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

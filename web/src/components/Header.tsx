@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fmtClock } from "../lib/format";
+import type { NotifPermission } from "../lib/useNotifications";
 import type { FleetSession } from "../types";
 
 function useClock(): Date {
@@ -14,9 +15,10 @@ function useClock(): Date {
 interface HeaderProps {
   connected: boolean;
   fleet: FleetSession[];
+  notifPermission: NotifPermission;
 }
 
-export function Header({ connected, fleet }: HeaderProps) {
+export function Header({ connected, fleet, notifPermission }: HeaderProps) {
   const now = useClock();
   const busy = fleet.filter((s) => s.status === "busy").length;
   const waiting = fleet.filter((s) => s.status === "waiting").length;
@@ -90,6 +92,27 @@ export function Header({ connected, fleet }: HeaderProps) {
           <span className="led" aria-hidden="true" />
           {connected ? "UPLINK ONLINE" : "UPLINK LOST"}
         </div>
+        {notifPermission !== "unsupported" && (
+          <div
+            className={`notif-bell ${notifPermission}`}
+            title={
+              notifPermission === "granted"
+                ? "Notifications activées"
+                : notifPermission === "denied"
+                  ? "Notifications bloquées — autoriser dans les réglages du navigateur"
+                  : "Notifications non activées"
+            }
+            aria-label={`Notifications : ${notifPermission}`}
+          >
+            {/* Bell icon — slash overlay when denied */}
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+              <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm6-4v-1l-1-1V7a5 5 0 0 0-4-4.9V1a1 1 0 1 0-2 0v1.1A5 5 0 0 0 3 7v3l-1 1v1h12z" />
+              {notifPermission === "denied" && (
+                <line x1="1" y1="1" x2="15" y2="15" stroke="currentColor" strokeWidth="1.5" />
+              )}
+            </svg>
+          </div>
+        )}
       </div>
     </header>
   );

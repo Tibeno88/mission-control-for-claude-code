@@ -159,6 +159,23 @@
   animation: blink 0.7s steps(2, start) infinite;
 }
 
+.notif-bell {
+  display: flex;
+  align-items: center;
+  opacity: 0.35;
+  cursor: default;
+}
+
+.notif-bell.granted {
+  color: var(--cyan);
+  opacity: 0.7;
+}
+
+.notif-bell.denied {
+  color: var(--amber);
+  opacity: 0.8;
+}
+
 /* ===== Metrics ===== */
 
 .metrics {

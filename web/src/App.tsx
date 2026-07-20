@@ -3,6 +3,7 @@ import { FleetGrid } from "./components/FleetGrid";
 import { Header } from "./components/Header";
 import { MetricsBar } from "./components/MetricsBar";
 import { SessionDetail } from "./components/SessionDetail";
+import { useNotifications } from "./lib/useNotifications";
 import { useSnapshot } from "./lib/useSnapshot";
 
 export default function App() {
@@ -10,13 +11,14 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const fleet = snap?.fleet ?? [];
+  const { notifPermission } = useNotifications(fleet);
   const selected =
     fleet.find((session) => session.sessionId === selectedId) ?? null;
 
   return (
     <div className="app">
       <div className="hud-overlay" aria-hidden="true" />
-      <Header connected={connected} fleet={fleet} />
+      <Header connected={connected} fleet={fleet} notifPermission={notifPermission} />
       <main className="layout">
         {snap ? (
           <>

@@ -1,4 +1,4 @@
-export type SessionStatus = "busy" | "waiting" | "idle" | "ended";
+export type SessionStatus = "busy" | "waiting" | "idle" | "ended" | "missing";
 
 export interface UsageTotals {
   inputTokens: number;
@@ -38,6 +38,20 @@ export interface ActivityEvent {
   detail?: string;
 }
 
+/** Aggregated summary of one sub-agent (Task/Agent) spawned within a session. */
+export interface SubAgentSummary {
+  agentId: string;
+  /** Attributed agent type, e.g. "Explore", "code-reviewer". */
+  type?: string;
+  models: string[];
+  usage: UsageTotals;
+  costUSD: number;
+  firstTs?: string;
+  lastTs?: string;
+  /** Snippet of the task prompt handed to the sub-agent. */
+  taskPrompt?: string;
+}
+
 export interface FleetSession {
   sessionId: string;
   name?: string;
@@ -57,6 +71,10 @@ export interface FleetSession {
   prompts: number;
   usage: UsageTotals;
   costUSD: number;
+  /** Per-sub-agent breakdown (usage/cost already included in `usage`/`costUSD`). */
+  subAgents: SubAgentSummary[];
+  /** Portion of `costUSD` attributable to sub-agents. */
+  subAgentCostUSD: number;
 }
 
 export interface HourPoint {

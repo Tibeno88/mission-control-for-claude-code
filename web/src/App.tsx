@@ -9,11 +9,22 @@ import { useSnapshot } from "./lib/useSnapshot";
 export default function App() {
   const { snap, connected } = useSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
 
-  const fleet = snap?.fleet ?? [];
+  const fleet = (snap?.fleet ?? []).filter(
+    (session) => !dismissed.has(session.sessionId),
+  );
   const { notifPermission } = useNotifications(fleet);
   const selected =
     fleet.find((session) => session.sessionId === selectedId) ?? null;
+
+  const dismissSession = (sessionId: string): void => {
+    setDismissed((previous) => new Set(previous).add(sessionId));
+    setSelectedId((current) => (current === sessionId ? null : current));
+    void fetch(`/api/sessions/${sessionId}/dismiss`, { method: "POST" }).catch(
+      () => undefined,
+    );
+  };
 
   return (
     <div className="app">
@@ -27,6 +38,7 @@ export default function App() {
               sessions={fleet}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              onDismiss={dismissSession}
             />
           </>
         ) : (

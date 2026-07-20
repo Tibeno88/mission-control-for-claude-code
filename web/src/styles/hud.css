@@ -329,6 +329,42 @@
   opacity: 0.8;
 }
 
+.card.missing {
+  border-color: rgba(255, 77, 94, 0.45);
+  opacity: 0.75;
+}
+
+.card.missing .corner {
+  border-color: rgba(255, 77, 94, 0.6);
+}
+
+.card.missing .status-label {
+  color: var(--red);
+}
+
+.status-dot.missing {
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+}
+
+.card-dismiss {
+  margin-left: 6px;
+  padding: 0 6px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+
+.card-dismiss:hover,
+.card-dismiss:focus-visible {
+  border-color: var(--red);
+  color: var(--red);
+}
+
 /* Corner brackets */
 .corner {
   position: absolute;
@@ -697,4 +733,90 @@
   .header-status {
     gap: var(--space-2);
   }
+}
+
+/* Sub-agents (Task/Agent spawned within a session) */
+.subagent-badge {
+  color: var(--amber);
+  border: 1px solid var(--amber-soft);
+  padding: 0 5px;
+  border-radius: 2px;
+  background: var(--amber-soft);
+}
+
+.usage-row.subagent {
+  color: var(--amber);
+  font-size: 0.72rem;
+}
+
+.usage-row.subagent .mono {
+  color: var(--amber);
+}
+
+.count-badge {
+  display: inline-block;
+  padding: 0 6px;
+  color: var(--amber);
+  border: 1px solid var(--amber-soft);
+  background: var(--amber-soft);
+  font-size: 0.6rem;
+  vertical-align: middle;
+}
+
+.subagent-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+}
+
+.subagent-item {
+  padding: var(--space-3);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--amber);
+}
+
+.subagent-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 0.72rem;
+}
+
+.subagent-type {
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.subagent-model {
+  color: var(--cyan-dim);
+}
+
+.subagent-cost {
+  margin-left: auto;
+  color: var(--text);
+}
+
+.subagent-usage {
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.subagent-time {
+  color: var(--text-faint);
+}
+
+.subagent-task {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

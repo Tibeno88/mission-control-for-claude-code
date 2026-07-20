@@ -11,6 +11,18 @@ import {
   type UsageTotals,
 } from "./types.js";
 
+/** Running aggregate for one sub-agent transcript within a session. */
+export interface SubAgentAgg {
+  agentId: string;
+  type?: string;
+  models: Set<string>;
+  usage: UsageTotals;
+  costUSD: number;
+  firstTs?: string;
+  lastTs?: string;
+  taskPrompt?: string;
+}
+
 export interface SessionAgg {
   sessionId: string;
   projectSlug: string;
@@ -24,6 +36,12 @@ export interface SessionAgg {
   usage: UsageTotals;
   costUSD: number;
   lastActivity?: ActivityEvent;
+  /** Sub-agents (Task/Agent) spawned in this session, keyed by agentId. */
+  subAgents: Map<string, SubAgentAgg>;
+  /** Portion of `costUSD` contributed by sub-agents. */
+  subAgentCostUSD: number;
+  /** Transcript file no longer exists on disk (aggregates kept in memory). */
+  missing: boolean;
 }
 
 export interface HourStats {
@@ -44,6 +62,10 @@ interface FileState {
   offset: number;
   remainder: string;
   projectSlug: string;
+  /** Parent session id when this file is a sub-agent transcript. */
+  subAgentOf?: string;
+  /** Sub-agent id (derived from the file name) for sub-agent transcripts. */
+  agentId?: string;
 }
 
 const ACTIVITY_TAIL_BYTES = 256 * 1024;
@@ -107,15 +129,69 @@ export class TranscriptStore extends EventEmitter {
       }
     }
 
+    // Second pass (parents already ingested): sub-agent transcripts live at
+    // {slug}/{sessionId}/subagents/agent-*.jsonl.
+    for (const slug of slugs) {
+      await this.scanSubAgentDir(path.join(this.projectsDir, slug));
+    }
+
+    // depth 3 reaches {slug}/{sessionId}/subagents/agent-*.jsonl.
     this.watcher = chokidar.watch(this.projectsDir, {
       ignoreInitial: true,
-      depth: 2,
+      depth: 3,
     });
     const onFile = (file: string): void => {
       if (file.endsWith(".jsonl")) void this.ingest(file);
     };
     this.watcher.on("add", onFile);
     this.watcher.on("change", onFile);
+    this.watcher.on("unlink", (file: string) => {
+      if (file.endsWith(".jsonl")) this.handleUnlink(file);
+    });
+  }
+
+  /** Ingests every recent sub-agent transcript under a project slug directory. */
+  private async scanSubAgentDir(slugDir: string): Promise<void> {
+    let sessionDirs: string[] = [];
+    try {
+      const dirents = await fsp.readdir(slugDir, { withFileTypes: true });
+      sessionDirs = dirents.filter((d) => d.isDirectory()).map((d) => d.name);
+    } catch {
+      return;
+    }
+    for (const sessionId of sessionDirs) {
+      const subDir = path.join(slugDir, sessionId, "subagents");
+      let names: string[] = [];
+      try {
+        names = await fsp.readdir(subDir);
+      } catch {
+        continue; // no subagents/ for this session
+      }
+      for (const name of names) {
+        if (!name.endsWith(".jsonl")) continue;
+        const file = path.join(subDir, name);
+        try {
+          const stat = await fsp.stat(file);
+          if (stat.mtimeMs < this.cutoffMs) continue;
+        } catch {
+          continue;
+        }
+        await this.ingest(file);
+      }
+    }
+  }
+
+  /** Transcript deleted on disk: flag its sessions as missing, keep the data. */
+  handleUnlink(file: string): void {
+    this.files.delete(file);
+    let changed = false;
+    for (const agg of this.sessionAggs.values()) {
+      if (agg.transcriptPath === file && !agg.missing) {
+        agg.missing = true;
+        changed = true;
+      }
+    }
+    if (changed) this.emit("update");
   }
 
   async stop(): Promise<void> {
@@ -190,11 +266,7 @@ export class TranscriptStore extends EventEmitter {
   private async readNewBytes(file: string): Promise<void> {
     let state = this.files.get(file);
     if (!state) {
-      state = {
-        offset: 0,
-        remainder: "",
-        projectSlug: path.basename(path.dirname(file)),
-      };
+      state = this.deriveFileState(file);
       this.files.set(file, state);
     }
 
@@ -226,7 +298,10 @@ export class TranscriptStore extends EventEmitter {
       state.remainder = lines.pop() ?? "";
       for (const line of lines) {
         if (!line.trim()) continue;
-        if (this.applyLine(line, file, state.projectSlug)) changed = true;
+        const applied = state.subAgentOf
+          ? this.applySubAgentLine(line, state)
+          : this.applyLine(line, file, state.projectSlug);
+        if (applied) changed = true;
       }
     } finally {
       await handle.close();
@@ -240,19 +315,15 @@ export class TranscriptStore extends EventEmitter {
 
     let agg = this.sessionAggs.get(entry.sessionId);
     if (!agg) {
-      agg = {
-        sessionId: entry.sessionId,
-        projectSlug,
-        transcriptPath: file,
-        models: new Set(),
-        prompts: 0,
-        usage: emptyUsage(),
-        costUSD: 0,
-      };
+      agg = this.newSessionAgg(entry.sessionId, projectSlug, file);
       this.sessionAggs.set(entry.sessionId, agg);
     }
 
     let changed = false;
+    if (agg.missing) {
+      agg.missing = false; // transcript reappeared on disk
+      changed = true;
+    }
     if (entry.cwd) agg.cwd = entry.cwd;
     if (entry.gitBranch && entry.gitBranch !== "HEAD")
       agg.gitBranch = entry.gitBranch;
@@ -280,6 +351,118 @@ export class TranscriptStore extends EventEmitter {
       const cost = this.pricing.costUSD(entry.model, entry.usage);
       agg.usage = addUsage(agg.usage, entry.usage);
       agg.costUSD += cost;
+      agg.models.add(entry.model);
+      this.bumpHour(entry.timestamp, entry.usage, cost);
+      this.bumpModel(entry.model, entry.usage, cost);
+      changed = true;
+    }
+    return changed;
+  }
+
+  private newSessionAgg(
+    sessionId: string,
+    projectSlug: string,
+    transcriptPath: string,
+  ): SessionAgg {
+    return {
+      sessionId,
+      projectSlug,
+      transcriptPath,
+      models: new Set(),
+      prompts: 0,
+      usage: emptyUsage(),
+      costUSD: 0,
+      subAgents: new Map(),
+      subAgentCostUSD: 0,
+      missing: false,
+    };
+  }
+
+  /** Builds per-file tail state, recognizing sub-agent transcripts by their path. */
+  private deriveFileState(file: string): FileState {
+    const parentDir = path.basename(path.dirname(file));
+    if (parentDir === "subagents") {
+      const sessionDir = path.dirname(path.dirname(file)); // {slug}/{sessionId}
+      const sessionId = path.basename(sessionDir);
+      const projectSlug = path.basename(path.dirname(sessionDir));
+      const agentId = path
+        .basename(file)
+        .replace(/^agent-/, "")
+        .replace(/\.jsonl$/, "");
+      return {
+        offset: 0,
+        remainder: "",
+        projectSlug,
+        subAgentOf: sessionId,
+        agentId,
+      };
+    }
+    return { offset: 0, remainder: "", projectSlug: parentDir };
+  }
+
+  /** Aggregates one sub-agent transcript line into its parent session. */
+  private applySubAgentLine(line: string, state: FileState): boolean {
+    const entry = parseLine(line);
+    if (!entry || !state.subAgentOf) return false;
+    const sessionId = state.subAgentOf;
+    const agentId = state.agentId ?? entry.agentId;
+    if (!agentId) return false;
+
+    let agg = this.sessionAggs.get(sessionId);
+    if (!agg) {
+      // Parent transcript not ingested yet — create a shell keyed to its main file.
+      const transcriptPath = path.join(
+        this.projectsDir,
+        state.projectSlug,
+        `${sessionId}.jsonl`,
+      );
+      agg = this.newSessionAgg(sessionId, state.projectSlug, transcriptPath);
+      this.sessionAggs.set(sessionId, agg);
+    }
+
+    let sub = agg.subAgents.get(agentId);
+    if (!sub) {
+      sub = { agentId, models: new Set(), usage: emptyUsage(), costUSD: 0 };
+      agg.subAgents.set(agentId, sub);
+    }
+
+    let changed = false;
+    if (entry.attributionAgent && !sub.type) {
+      sub.type = entry.attributionAgent;
+      changed = true;
+    }
+    if (entry.timestamp) {
+      if (!sub.firstTs || entry.timestamp < sub.firstTs)
+        sub.firstTs = entry.timestamp;
+      if (!sub.lastTs || entry.timestamp > sub.lastTs)
+        sub.lastTs = entry.timestamp;
+    }
+    // The sub-agent's first user prompt is the task it was handed.
+    if (
+      !sub.taskPrompt &&
+      entry.activity?.kind === "user" &&
+      entry.activity.label === "PROMPT"
+    ) {
+      sub.taskPrompt = entry.activity.detail;
+      changed = true;
+    }
+    if (
+      entry.usage &&
+      entry.model &&
+      entry.model !== "<synthetic>" &&
+      this.markUsageSeen(
+        sessionId,
+        entry.dedupeKey ? `sub:${agentId}:${entry.dedupeKey}` : undefined,
+      )
+    ) {
+      const cost = this.pricing.costUSD(entry.model, entry.usage);
+      sub.usage = addUsage(sub.usage, entry.usage);
+      sub.costUSD += cost;
+      sub.models.add(entry.model);
+      // Roll sub-agent usage into parent session totals and global buckets.
+      agg.usage = addUsage(agg.usage, entry.usage);
+      agg.costUSD += cost;
+      agg.subAgentCostUSD += cost;
       agg.models.add(entry.model);
       this.bumpHour(entry.timestamp, entry.usage, cost);
       this.bumpModel(entry.model, entry.usage, cost);

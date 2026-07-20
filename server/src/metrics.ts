@@ -1,5 +1,9 @@
 import type { LiveSession } from "./sessions.js";
-import type { SessionAgg, TranscriptStore } from "./transcripts.js";
+import type {
+  SessionAgg,
+  SubAgentAgg,
+  TranscriptStore,
+} from "./transcripts.js";
 import {
   emptyUsage,
   type FleetSession,
@@ -7,7 +11,21 @@ import {
   type HourPoint,
   type PeriodStats,
   type SessionStatus,
+  type SubAgentSummary,
 } from "./types.js";
+
+function toSubAgentSummary(sub: SubAgentAgg): SubAgentSummary {
+  return {
+    agentId: sub.agentId,
+    type: sub.type,
+    models: [...sub.models],
+    usage: sub.usage,
+    costUSD: sub.costUSD,
+    firstTs: sub.firstTs,
+    lastTs: sub.lastTs,
+    taskPrompt: sub.taskPrompt,
+  };
+}
 
 const ENDED_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_ENDED_SESSIONS = 20;
@@ -16,7 +34,8 @@ const STATUS_RANK: Record<SessionStatus, number> = {
   waiting: 0,
   busy: 1,
   idle: 2,
-  ended: 3,
+  missing: 3,
+  ended: 4,
 };
 
 function tsToMs(ts: string | undefined): number {
@@ -29,7 +48,11 @@ function mergeFleet(
   live: LiveSession | undefined,
   agg: SessionAgg | undefined,
 ): FleetSession {
-  const status: SessionStatus = live ? live.status : "ended";
+  const status: SessionStatus = live
+    ? live.status
+    : agg?.missing
+      ? "missing"
+      : "ended";
   return {
     sessionId: live?.sessionId ?? agg?.sessionId ?? "",
     name: live?.name,
@@ -49,12 +72,15 @@ function mergeFleet(
     prompts: agg?.prompts ?? 0,
     usage: agg?.usage ?? emptyUsage(),
     costUSD: agg?.costUSD ?? 0,
+    subAgents: agg ? [...agg.subAgents.values()].map(toSubAgentSummary) : [],
+    subAgentCostUSD: agg?.subAgentCostUSD ?? 0,
   };
 }
 
 export function buildFleet(
   live: LiveSession[],
   store: TranscriptStore,
+  dismissed: ReadonlySet<string> = new Set(),
 ): FleetSession[] {
   const fleet: FleetSession[] = [];
   const liveIds = new Set<string>();
@@ -68,7 +94,10 @@ export function buildFleet(
   const ended = store
     .sessions()
     .filter(
-      (agg) => !liveIds.has(agg.sessionId) && tsToMs(agg.lastTs) >= endedCutoff,
+      (agg) =>
+        !liveIds.has(agg.sessionId) &&
+        !dismissed.has(agg.sessionId) &&
+        tsToMs(agg.lastTs) >= endedCutoff,
     )
     .sort((a, b) => tsToMs(b.lastTs) - tsToMs(a.lastTs))
     .slice(0, MAX_ENDED_SESSIONS)

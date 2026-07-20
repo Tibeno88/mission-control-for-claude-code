@@ -137,7 +137,50 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
           <span>EST. COST</span>
           <span className="mono">{fmtUSD(session.costUSD)}</span>
         </div>
+        {session.subAgentCostUSD > 0 && (
+          <div className="usage-row subagent">
+            <span>↳ SUB-AGENTS</span>
+            <span className="mono">{fmtUSD(session.subAgentCostUSD)}</span>
+          </div>
+        )}
       </div>
+
+      {session.subAgents.length > 0 && (
+        <>
+          <h3 className="detail-feed-title">
+            SUB-AGENTS{" "}
+            <span className="count-badge">{session.subAgents.length}</span>
+          </h3>
+          <ul className="subagent-list">
+            {[...session.subAgents]
+              .sort((a, b) => b.costUSD - a.costUSD)
+              .map((sub) => (
+                <li key={sub.agentId} className="subagent-item">
+                  <div className="subagent-head mono">
+                    <span className="subagent-type">{sub.type ?? "agent"}</span>
+                    <span className="subagent-model">
+                      {sub.models.map(modelShort).join(", ") || "—"}
+                    </span>
+                    <span className="subagent-cost">{fmtUSD(sub.costUSD)}</span>
+                  </div>
+                  <div className="subagent-usage mono">
+                    {fmtTokens(sub.usage.inputTokens + sub.usage.outputTokens)}{" "}
+                    TOK
+                    {sub.firstTs && (
+                      <span className="subagent-time">
+                        {" · "}
+                        {fmtEventTime(sub.firstTs)}
+                      </span>
+                    )}
+                  </div>
+                  {sub.taskPrompt && (
+                    <p className="subagent-task">{sub.taskPrompt}</p>
+                  )}
+                </li>
+              ))}
+          </ul>
+        </>
+      )}
 
       <h3 className="detail-feed-title">ACTIVITY FEED</h3>
       <ol className="detail-feed">

@@ -7,6 +7,10 @@ export interface ParsedEntry {
   cwd?: string;
   gitBranch?: string;
   isSidechain: boolean;
+  /** Present on sub-agent transcript lines (~/.claude/…/{session}/subagents/). */
+  agentId?: string;
+  /** Sub-agent type as attributed by Claude Code (e.g. "Explore", "code-reviewer"). */
+  attributionAgent?: string;
   model?: string;
   usage?: UsageTotals;
   dedupeKey?: string;
@@ -156,6 +160,8 @@ export function parseLine(line: string): ParsedEntry | null {
     cwd: str(record.cwd),
     gitBranch: str(record.gitBranch),
     isSidechain: record.isSidechain === true,
+    agentId: str(record.agentId),
+    attributionAgent: str(record.attributionAgent),
   };
 
   if (record.type === "assistant") {

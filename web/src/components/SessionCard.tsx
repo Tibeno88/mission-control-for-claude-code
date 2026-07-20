@@ -15,6 +15,7 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
   waiting: "AWAITING INPUT",
   idle: "IDLE",
   ended: "ENDED",
+  missing: "SOURCE DELETED",
 };
 
 function TimeAgo({ sinceMs }: { sinceMs: number }) {
@@ -31,16 +32,21 @@ interface SessionCardProps {
   session: FleetSession;
   selected: boolean;
   onSelect: (sessionId: string) => void;
+  onDismiss: (sessionId: string) => void;
 }
 
-export function SessionCard({ session, selected, onSelect }: SessionCardProps) {
+export function SessionCard({
+  session,
+  selected,
+  onSelect,
+  onDismiss,
+}: SessionCardProps) {
   const lastMs = Math.max(
     tsToMs(session.lastEventTs),
     session.statusUpdatedAt ?? 0,
   );
   const activity = session.lastActivity;
-  const kindTag =
-    session.kind === "bg" ? "BG" : session.status === "ended" ? "LOG" : "TUI";
+  const kindTag = session.kind === "bg" ? "BG" : session.pid ? "TUI" : "LOG";
 
   return (
     <article
@@ -68,6 +74,20 @@ export function SessionCard({ session, selected, onSelect }: SessionCardProps) {
           <span className="waiting-for">{session.waitingFor}</span>
         )}
         <span className="kind">{kindTag}</span>
+        {session.status === "missing" && (
+          <button
+            type="button"
+            className="card-dismiss mono"
+            title="Retirer de la grille (aucune suppression sur disque)"
+            aria-label="Retirer cette session de la grille"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDismiss(session.sessionId);
+            }}
+          >
+            ✕
+          </button>
+        )}
       </header>
 
       <h3 className="card-project">{projectName(session)}</h3>
@@ -78,6 +98,14 @@ export function SessionCard({ session, selected, onSelect }: SessionCardProps) {
         <span className="sid">#{shortId(session.sessionId)}</span>
         {session.models[0] && (
           <span className="model">{modelShort(session.models[0])}</span>
+        )}
+        {session.subAgents.length > 0 && (
+          <span
+            className="subagent-badge"
+            title={`${session.subAgents.length} sous-agent(s) · ${fmtUSD(session.subAgentCostUSD)}`}
+          >
+            ⑃ {session.subAgents.length}
+          </span>
         )}
       </div>
 

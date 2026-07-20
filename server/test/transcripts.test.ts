@@ -119,4 +119,71 @@ describe("TranscriptStore", () => {
     expect(bucket?.outputTokens).toBe(1000);
     expect(bucket?.costUSD).toBeGreaterThan(0);
   });
+
+  test("aggregates sub-agent transcripts and folds their cost into the session", async () => {
+    await fsp.writeFile(transcript, assistantUsageLine("msg_main", 20));
+
+    const subDir = path.join(root, SLUG, SESSION_ID, "subagents");
+    await fsp.mkdir(subDir, { recursive: true });
+    const agentId = "a1db10a957ad250b3";
+    const subLines =
+      `${JSON.stringify({
+        type: "user",
+        sessionId: SESSION_ID,
+        agentId,
+        attributionAgent: "Explore",
+        isSidechain: true,
+        timestamp: new Date().toISOString(),
+        message: { role: "user", content: "explore le dossier server" },
+      })}\n` +
+      `${JSON.stringify({
+        type: "assistant",
+        sessionId: SESSION_ID,
+        agentId,
+        attributionAgent: "Explore",
+        isSidechain: true,
+        timestamp: new Date().toISOString(),
+        message: {
+          id: "sub_msg_A",
+          model: "claude-fable-5",
+          content: [{ type: "text", text: "trouvé" }],
+          usage: {
+            input_tokens: 40,
+            output_tokens: 60,
+            cache_read_input_tokens: 0,
+          },
+        },
+      })}\n`;
+    await fsp.writeFile(path.join(subDir, `agent-${agentId}.jsonl`), subLines);
+
+    await store.init();
+
+    const agg = store.sessions()[0]!;
+    expect(agg.subAgents.size).toBe(1);
+    const sub = agg.subAgents.get(agentId)!;
+    expect(sub.type).toBe("Explore");
+    expect(sub.taskPrompt).toBe("explore le dossier server");
+    expect(sub.usage.outputTokens).toBe(60);
+    expect(sub.models.has("claude-fable-5")).toBe(true);
+
+    // Sub-agent usage is folded into the parent totals.
+    expect(agg.usage.outputTokens).toBe(80); // 20 main + 60 sub
+    expect(agg.subAgentCostUSD).toBeGreaterThan(0);
+    expect(agg.costUSD).toBeGreaterThan(agg.subAgentCostUSD);
+  });
+
+  test("flags sessions as missing on unlink and revives them on re-ingest", async () => {
+    await fsp.writeFile(transcript, assistantUsageLine("msg_G", 3));
+    await store.init();
+    expect(store.sessions()[0]?.missing).toBe(false);
+
+    await fsp.rm(transcript);
+    store.handleUnlink(transcript);
+    expect(store.sessions()[0]?.missing).toBe(true);
+
+    await fsp.writeFile(transcript, assistantUsageLine("msg_H", 4));
+    await store.ingest(transcript);
+    expect(store.sessions()[0]?.missing).toBe(false);
+    expect(store.sessions()[0]?.usage.outputTokens).toBe(7);
+  });
 });

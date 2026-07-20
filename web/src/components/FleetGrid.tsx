@@ -5,9 +5,15 @@ interface FleetGridProps {
   sessions: FleetSession[];
   selectedId: string | null;
   onSelect: (sessionId: string) => void;
+  onDismiss: (sessionId: string) => void;
 }
 
-export function FleetGrid({ sessions, selectedId, onSelect }: FleetGridProps) {
+export function FleetGrid({
+  sessions,
+  selectedId,
+  onSelect,
+  onDismiss,
+}: FleetGridProps) {
   if (sessions.length === 0) {
     return (
       <div className="fleet-empty mono">NO SESSIONS DETECTED — STANDBY</div>
@@ -21,6 +27,7 @@ export function FleetGrid({ sessions, selectedId, onSelect }: FleetGridProps) {
           session={session}
           selected={session.sessionId === selectedId}
           onSelect={onSelect}
+          onDismiss={onDismiss}
         />
       ))}
     </section>

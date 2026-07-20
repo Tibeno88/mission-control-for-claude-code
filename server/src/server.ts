@@ -76,9 +76,12 @@ async function main(): Promise<void> {
   await registry.start();
   console.log(`[registry] ${registry.list().length} live sessions`);
 
+  // Sessions manually removed from the grid (memory only — nothing touched on disk).
+  const dismissed = new Set<string>();
+
   const snapshot = () => ({
     type: "snapshot" as const,
-    fleet: buildFleet(registry.list(), store),
+    fleet: buildFleet(registry.list(), store, dismissed),
     metrics: buildMetrics(store),
     generatedAt: Date.now(),
   });
@@ -88,7 +91,7 @@ async function main(): Promise<void> {
   app.get("/api/snapshot", (c) => c.json(snapshot()));
   app.get("/api/fleet", (c) =>
     c.json({
-      sessions: buildFleet(registry.list(), store),
+      sessions: buildFleet(registry.list(), store, dismissed),
       generatedAt: Date.now(),
     }),
   );
@@ -102,6 +105,16 @@ async function main(): Promise<void> {
       ? 80
       : Math.min(Math.max(limitRaw, 1), 300);
     return c.json({ events: await store.recentActivity(id, limit) });
+  });
+  app.post("/api/sessions/:id/dismiss", (c) => {
+    const id = c.req.param("id");
+    if (!SESSION_ID_RE.test(id))
+      return c.json({ error: "invalid session id" }, 400);
+    if (registry.list().some((s) => s.sessionId === id))
+      return c.json({ error: "session is live" }, 409);
+    dismissed.add(id);
+    scheduleBroadcast();
+    return c.json({ ok: true });
   });
   registerStaticUi(app);
 

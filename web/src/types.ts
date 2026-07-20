@@ -1,4 +1,4 @@
-export type SessionStatus = "busy" | "waiting" | "idle" | "ended";
+export type SessionStatus = "busy" | "waiting" | "idle" | "ended" | "missing";
 
 export interface UsageTotals {
   inputTokens: number;
@@ -16,6 +16,17 @@ export interface ActivityEvent {
   kind: ActivityKind;
   label: string;
   detail?: string;
+}
+
+export interface SubAgentSummary {
+  agentId: string;
+  type?: string;
+  models: string[];
+  usage: UsageTotals;
+  costUSD: number;
+  firstTs?: string;
+  lastTs?: string;
+  taskPrompt?: string;
 }
 
 export interface FleetSession {
@@ -37,6 +48,8 @@ export interface FleetSession {
   prompts: number;
   usage: UsageTotals;
   costUSD: number;
+  subAgents: SubAgentSummary[];
+  subAgentCostUSD: number;
 }
 
 export interface HourPoint {

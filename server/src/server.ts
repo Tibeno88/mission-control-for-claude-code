@@ -6,6 +6,11 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { WebSocketServer } from "ws";
+import { registerBackupRoutes } from "./backup/api.js";
+import { openDb } from "./backup/db.js";
+import { BackupScheduler } from "./backup/scheduler.js";
+import { BackupService } from "./backup/service.js";
+import type { BackupStatusEvent } from "./backup/types.js";
 import { loadConfig } from "./config.js";
 import { buildFleet, buildMetrics } from "./metrics.js";
 import { PricingTable } from "./pricing.js";
@@ -76,6 +81,14 @@ async function main(): Promise<void> {
   await registry.start();
   console.log(`[registry] ${registry.list().length} live sessions`);
 
+  const db = openDb(config.dbPath);
+  const backupService = new BackupService(db, store, config);
+  const backupScheduler = new BackupScheduler(
+    backupService,
+    db,
+    config.backupDir,
+  );
+
   // Sessions manually removed from the grid (memory only — nothing touched on disk).
   const dismissed = new Set<string>();
 
@@ -116,6 +129,13 @@ async function main(): Promise<void> {
     scheduleBroadcast();
     return c.json({ ok: true });
   });
+  registerBackupRoutes(app, {
+    db,
+    service: backupService,
+    scheduler: backupScheduler,
+    store,
+    config,
+  });
   registerStaticUi(app);
 
   const server = serve(
@@ -148,17 +168,34 @@ async function main(): Promise<void> {
     }, config.broadcastDebounceMs);
   };
 
+  const broadcastBackupStatus = (evt: BackupStatusEvent): void => {
+    if (wss.clients.size === 0) return;
+    const message = JSON.stringify({
+      type: "backup_status" as const,
+      ...evt,
+      generatedAt: Date.now(),
+    });
+    for (const client of wss.clients) {
+      if (client.readyState === client.OPEN) client.send(message);
+    }
+  };
+
   wss.on("connection", (ws) => ws.send(JSON.stringify(snapshot())));
   registry.on("change", scheduleBroadcast);
   store.on("update", scheduleBroadcast);
+  backupService.on("status", broadcastBackupStatus);
   // Heartbeat keeps relative timers and stale-PID detection fresh client-side.
   setInterval(broadcast, HEARTBEAT_MS).unref();
+
+  backupScheduler.start();
 
   const shutdown = async (): Promise<void> => {
     clearTimeout(pendingBroadcast);
     wss.close();
     server.close();
+    backupScheduler.stop();
     await Promise.all([registry.stop(), store.stop()]);
+    db.close();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown());

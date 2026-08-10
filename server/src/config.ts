@@ -9,6 +9,9 @@ export interface Config {
   scanDays: number;
   registryPollMs: number;
   broadcastDebounceMs: number;
+  dataDir: string;
+  dbPath: string;
+  backupDir: string;
 }
 
 function intFromEnv(name: string, fallback: number): number {
@@ -26,6 +29,9 @@ function intFromEnv(name: string, fallback: number): number {
 export function loadConfig(): Config {
   const claudeDir =
     process.env.CMC_CLAUDE_DIR ?? path.join(os.homedir(), ".claude");
+  const dataDir =
+    process.env.CMC_DATA_DIR ??
+    path.join(os.homedir(), ".claude-mission-control");
   return {
     port: intFromEnv("CMC_PORT", 4517),
     claudeDir,
@@ -34,5 +40,8 @@ export function loadConfig(): Config {
     scanDays: intFromEnv("CMC_SCAN_DAYS", 7),
     registryPollMs: 3000,
     broadcastDebounceMs: 500,
+    dataDir,
+    dbPath: path.join(dataDir, "cmc.db"),
+    backupDir: path.join(dataDir, "archives"),
   };
 }

@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { ArchiveView } from "./components/backup/ArchiveView";
 import { FleetGrid } from "./components/FleetGrid";
 import { Header } from "./components/Header";
+import type { MainView } from "./components/Header";
 import { MetricsBar } from "./components/MetricsBar";
 import { SessionDetail } from "./components/SessionDetail";
 import { useNotifications } from "./lib/useNotifications";
@@ -10,6 +12,7 @@ export default function App() {
   const { snap, connected } = useSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
+  const [view, setView] = useState<MainView>("live");
 
   const fleet = (snap?.fleet ?? []).filter(
     (session) => !dismissed.has(session.sessionId),
@@ -29,25 +32,35 @@ export default function App() {
   return (
     <div className="app">
       <div className="hud-overlay" aria-hidden="true" />
-      <Header connected={connected} fleet={fleet} notifPermission={notifPermission} />
+      <Header
+        connected={connected}
+        fleet={fleet}
+        notifPermission={notifPermission}
+        view={view}
+        onViewChange={setView}
+      />
       <main className="layout">
-        {snap ? (
-          <>
-            <MetricsBar metrics={snap.metrics} />
-            <FleetGrid
-              sessions={fleet}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onDismiss={dismissSession}
-            />
-          </>
+        {view === "live" ? (
+          snap ? (
+            <>
+              <MetricsBar metrics={snap.metrics} />
+              <FleetGrid
+                sessions={fleet}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onDismiss={dismissSession}
+              />
+            </>
+          ) : (
+            <div className="boot mono">
+              ESTABLISHING UPLINK<span className="blink">▌</span>
+            </div>
+          )
         ) : (
-          <div className="boot mono">
-            ESTABLISHING UPLINK<span className="blink">▌</span>
-          </div>
+          <ArchiveView />
         )}
       </main>
-      {selected && (
+      {view === "live" && selected && (
         <SessionDetail session={selected} onClose={() => setSelectedId(null)} />
       )}
     </div>

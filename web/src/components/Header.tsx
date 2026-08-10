@@ -12,13 +12,23 @@ function useClock(): Date {
   return now;
 }
 
+export type MainView = "live" | "archive";
+
 interface HeaderProps {
   connected: boolean;
   fleet: FleetSession[];
   notifPermission: NotifPermission;
+  view: MainView;
+  onViewChange: (view: MainView) => void;
 }
 
-export function Header({ connected, fleet, notifPermission }: HeaderProps) {
+export function Header({
+  connected,
+  fleet,
+  notifPermission,
+  view,
+  onViewChange,
+}: HeaderProps) {
   const now = useClock();
   const busy = fleet.filter((s) => s.status === "busy").length;
   const waiting = fleet.filter((s) => s.status === "waiting").length;
@@ -77,6 +87,24 @@ export function Header({ connected, fleet, notifPermission }: HeaderProps) {
         </div>
       </div>
       <div className="header-status">
+        <nav className="view-tabs" aria-label="Navigation principale">
+          <button
+            type="button"
+            className={`view-tab ${view === "live" ? "active" : ""}`}
+            aria-pressed={view === "live"}
+            onClick={() => onViewChange("live")}
+          >
+            LIVE
+          </button>
+          <button
+            type="button"
+            className={`view-tab ${view === "archive" ? "active" : ""}`}
+            aria-pressed={view === "archive"}
+            onClick={() => onViewChange("archive")}
+          >
+            ARCHIVE
+          </button>
+        </nav>
         <div className="counts mono">
           <span className="count busy">{busy} RUN</span>
           <span className={`count waiting ${waiting > 0 ? "alert" : ""}`}>
@@ -105,10 +133,23 @@ export function Header({ connected, fleet, notifPermission }: HeaderProps) {
             aria-label={`Notifications : ${notifPermission}`}
           >
             {/* Bell icon — slash overlay when denied */}
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm6-4v-1l-1-1V7a5 5 0 0 0-4-4.9V1a1 1 0 1 0-2 0v1.1A5 5 0 0 0 3 7v3l-1 1v1h12z" />
               {notifPermission === "denied" && (
-                <line x1="1" y1="1" x2="15" y2="15" stroke="currentColor" strokeWidth="1.5" />
+                <line
+                  x1="1"
+                  y1="1"
+                  x2="15"
+                  y2="15"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
               )}
             </svg>
           </div>

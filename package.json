@@ -12,6 +12,7 @@
     "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
     "build": "npm run build -w web && npm run build -w server",
     "start": "node server/dist/server.js",
+    "backup": "npm run build -w server && npm run backup -w server",
     "test": "npm run test -w server",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
     "pack:src": "tar --exclude='node_modules' --exclude='.git' --exclude='server/dist' --exclude='web/dist' --exclude='logs' --exclude='*.tar.gz' -czf claude-mission-control-src.tar.gz -C .. claude-mission-control"

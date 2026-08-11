@@ -99,6 +99,28 @@ export const DEFAULT_PRICING: Record<string, ModelPricing> = {
   },
 };
 
+const PROVIDER_PREFIXES = new Set(["bedrock", "anthropic", "vertex", "openrouter", "aws"]);
+
+/**
+ * Normalizes a model name to a sorted token key for fuzzy matching.
+ * Strips provider prefixes and date suffixes so that
+ * "bedrock-claude-5-sonnet" and "claude-sonnet-5" produce identical keys.
+ * Returns undefined when fewer than 2 meaningful tokens remain (avoids false positives).
+ */
+function tokenKey(model: string): string | undefined {
+  const tokens = model
+    .toLowerCase()
+    .split(/[-/_]/)
+    .filter((t) => {
+      if (t.length < 2) return false;
+      if (/^\d{8}$/.test(t)) return false; // date suffix
+      if (PROVIDER_PREFIXES.has(t)) return false;
+      return true;
+    });
+  if (tokens.length < 2) return undefined;
+  return tokens.sort().join("-");
+}
+
 interface LiteLLMEntry {
   input_cost_per_token?: number;
   output_cost_per_token?: number;
@@ -126,7 +148,17 @@ export class PricingTable {
     for (const key of this.table.keys()) {
       if (model.startsWith(key) && key.length > bestKey.length) bestKey = key;
     }
-    return bestKey ? this.table.get(bestKey) : undefined;
+    if (bestKey) return this.table.get(bestKey);
+
+    // 4th pass: token-set match — handles provider-prefixed custom names
+    // e.g. "bedrock-claude-5-sonnet" ↔ "claude-sonnet-5"
+    const needle = tokenKey(model);
+    if (needle) {
+      for (const [key, pricing] of this.table) {
+        if (tokenKey(key) === needle) return pricing;
+      }
+    }
+    return undefined;
   }
 
   costUSD(model: string, usage: UsageTotals): number {
@@ -155,14 +187,19 @@ export class PricingTable {
       const data = (await response.json()) as Record<string, LiteLLMEntry>;
       let updated = 0;
       for (const [key, entry] of Object.entries(data)) {
-        if (!key.startsWith("claude-")) continue;
+        const isClaudeKey =
+          key.startsWith("claude-") ||
+          key.startsWith("bedrock/claude-") ||
+          key.startsWith("vertex_ai/claude-");
+        if (!isClaudeKey) continue;
         if (
           typeof entry.input_cost_per_token !== "number" ||
           typeof entry.output_cost_per_token !== "number"
         ) {
           continue;
         }
-        this.table.set(key, {
+        const canonicalKey = key.replace(/^(?:bedrock|vertex_ai)\//, "");
+        this.table.set(canonicalKey, {
           input: entry.input_cost_per_token,
           output: entry.output_cost_per_token,
           cacheRead: entry.cache_read_input_token_cost ?? 0,

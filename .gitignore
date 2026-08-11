@@ -8,3 +8,7 @@ coverage/
 
 *.tar.gz
 
+# Yarn v4 local artifacts
+.yarn/install-state.gz
+.yarn/unplugged/
+

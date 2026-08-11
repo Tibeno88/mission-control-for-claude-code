@@ -4,17 +4,18 @@
   "private": true,
   "description": "Local web dashboard to supervise Claude Code sessions in near real-time (fleet status, consumption metrics).",
   "type": "module",
+  "packageManager": "yarn@4.18.0",
   "workspaces": [
     "server",
     "web"
   ],
   "scripts": {
-    "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
-    "build": "npm run build -w web && npm run build -w server",
+    "dev": "concurrently -n server,web -c cyan,magenta \"yarn workspace @cmc/server dev\" \"yarn workspace @cmc/web dev\"",
+    "build": "yarn workspace @cmc/web build && yarn workspace @cmc/server build",
     "start": "node server/dist/server.js",
-    "backup": "npm run build -w server && npm run backup -w server",
-    "test": "npm run test -w server",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "backup": "yarn workspace @cmc/server build && yarn workspace @cmc/server backup",
+    "test": "yarn workspace @cmc/server test",
+    "typecheck": "yarn workspace @cmc/server typecheck && yarn workspace web typecheck",
     "pack:src": "tar --exclude='node_modules' --exclude='.git' --exclude='server/dist' --exclude='web/dist' --exclude='logs' --exclude='*.tar.gz' -czf claude-mission-control-src.tar.gz -C .. claude-mission-control"
   },
   "engines": {

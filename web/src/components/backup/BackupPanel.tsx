@@ -175,16 +175,29 @@ export function BackupPanel({ backup }: BackupPanelProps) {
           />
         </label>
 
-        <label className="form-field mono">
+        <div className="form-field mono retention-field">
           <span>RÉTENTION (JOURS)</span>
-          <input
-            type="number"
-            min={1}
-            value={retentionDays}
-            onChange={(event) => setRetentionDays(Number(event.target.value))}
-            className="mono"
-          />
-        </label>
+          <label className="retention-infinite">
+            <input
+              type="checkbox"
+              checked={retentionDays === 0}
+              onChange={(event) => setRetentionDays(event.target.checked ? 0 : 30)}
+            />
+            <span>INFINI</span>
+          </label>
+          {retentionDays !== 0 && (
+            <input
+              type="number"
+              min={1}
+              value={retentionDays}
+              onChange={(event) => {
+                const v = Number(event.target.value);
+                setRetentionDays(v < 1 ? 1 : v);
+              }}
+              className="mono"
+            />
+          )}
+        </div>
 
         <button type="submit" className="form-submit mono">
           ENREGISTRER

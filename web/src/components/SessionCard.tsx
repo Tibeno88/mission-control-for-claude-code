@@ -9,6 +9,7 @@ import {
   tsToMs,
 } from "../lib/format";
 import type { FleetSession, SessionStatus } from "../types";
+import { PlannotatorBadge } from "./PlannotatorPanel";
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
   busy: "RUNNING",
@@ -106,6 +107,9 @@ export function SessionCard({
           >
             ⑃ {session.subAgents.length}
           </span>
+        )}
+        {session.plannotator && session.plannotator.length > 0 && (
+          <PlannotatorBadge sessions={session.plannotator} />
         )}
       </div>
 

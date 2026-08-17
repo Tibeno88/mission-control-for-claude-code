@@ -35,6 +35,7 @@ describe("backup/history (GET /api/backup/history)", () => {
       claudeDir: root,
       projectsDir: path.join(root, "projects"),
       sessionsDir: root,
+      plannotatorSessionsDir: path.join(root, "plannotator"),
       scanDays: 7,
       registryPollMs: 3000,
       broadcastDebounceMs: 500,

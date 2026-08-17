@@ -52,6 +52,23 @@ export interface SubAgentSummary {
   taskPrompt?: string;
 }
 
+/**
+ * One live Plannotator UI server, mirrored from ~/.plannotator/sessions/(pid).json.
+ * `claudeSessionId` is only set when the owning Claude session was resolved with
+ * certainty (PID ancestry) — never guessed from the project name.
+ */
+export interface PlannotatorSessionInfo {
+  pid: number;
+  port: number;
+  url: string;
+  mode: string;
+  project: string;
+  label?: string;
+  /** Epoch ms, normalised from Plannotator's ISO 8601 `startedAt`. */
+  startedAt: number;
+  claudeSessionId?: string;
+}
+
 export interface FleetSession {
   sessionId: string;
   name?: string;
@@ -75,6 +92,8 @@ export interface FleetSession {
   subAgents: SubAgentSummary[];
   /** Portion of `costUSD` attributable to sub-agents. */
   subAgentCostUSD: number;
+  /** Plannotator UIs proven to belong to this session (empty/absent otherwise). */
+  plannotator?: PlannotatorSessionInfo[];
 }
 
 export interface HourPoint {

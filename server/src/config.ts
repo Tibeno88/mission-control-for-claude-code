@@ -6,6 +6,8 @@ export interface Config {
   claudeDir: string;
   projectsDir: string;
   sessionsDir: string;
+  /** Plannotator's live registry — one <pid>.json per running Plannotator UI server. */
+  plannotatorSessionsDir: string;
   scanDays: number;
   registryPollMs: number;
   broadcastDebounceMs: number;
@@ -26,9 +28,23 @@ function intFromEnv(name: string, fallback: number): number {
   return parsed;
 }
 
+/** Mirrors Plannotator's own `~` handling for PLANNOTATOR_DATA_DIR. */
+function expandHome(dir: string): string {
+  const home = os.homedir();
+  if (dir === "~") return home;
+  if (dir.startsWith("~/") || dir.startsWith("~\\"))
+    return path.join(home, dir.slice(2));
+  return dir;
+}
+
 export function loadConfig(): Config {
   const claudeDir =
     process.env.CMC_CLAUDE_DIR ?? path.join(os.homedir(), ".claude");
+  const plannotatorDir = expandHome(
+    process.env.CMC_PLANNOTATOR_DIR?.trim() ||
+      process.env.PLANNOTATOR_DATA_DIR?.trim() ||
+      path.join(os.homedir(), ".plannotator"),
+  );
   const dataDir =
     process.env.CMC_DATA_DIR ??
     path.join(os.homedir(), ".claude-mission-control");
@@ -37,6 +53,7 @@ export function loadConfig(): Config {
     claudeDir,
     projectsDir: path.join(claudeDir, "projects"),
     sessionsDir: path.join(claudeDir, "sessions"),
+    plannotatorSessionsDir: path.join(plannotatorDir, "sessions"),
     scanDays: intFromEnv("CMC_SCAN_DAYS", 7),
     registryPollMs: 3000,
     broadcastDebounceMs: 500,

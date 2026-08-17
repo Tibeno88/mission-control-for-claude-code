@@ -66,6 +66,7 @@ describe("backup/service", () => {
       claudeDir: root,
       projectsDir,
       sessionsDir: root,
+      plannotatorSessionsDir: path.join(root, "plannotator"),
       scanDays: 7,
       registryPollMs: 3000,
       broadcastDebounceMs: 500,

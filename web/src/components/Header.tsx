@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { fmtClock } from "../lib/format";
 import type { NotifPermission } from "../lib/useNotifications";
-import type { FleetSession } from "../types";
+import type { FleetSession, PlannotatorSessionInfo } from "../types";
+import { PlannotatorIndicator } from "./PlannotatorPanel";
 
 function useClock(): Date {
   const [now, setNow] = useState(() => new Date());
@@ -17,6 +18,7 @@ export type MainView = "live" | "archive";
 interface HeaderProps {
   connected: boolean;
   fleet: FleetSession[];
+  plannotator: PlannotatorSessionInfo[];
   notifPermission: NotifPermission;
   view: MainView;
   onViewChange: (view: MainView) => void;
@@ -25,6 +27,7 @@ interface HeaderProps {
 export function Header({
   connected,
   fleet,
+  plannotator,
   notifPermission,
   view,
   onViewChange,
@@ -111,6 +114,7 @@ export function Header({
             {waiting} WAIT
           </span>
           <span className="count idle">{idle} IDLE</span>
+          <PlannotatorIndicator sessions={plannotator} />
         </div>
         <div className="clock mono">
           <span className="clock-time">{fmtClock(now)}</span>

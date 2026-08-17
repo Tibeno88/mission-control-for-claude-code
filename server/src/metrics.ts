@@ -10,6 +10,7 @@ import {
   type GlobalMetrics,
   type HourPoint,
   type PeriodStats,
+  type PlannotatorSessionInfo,
   type SessionStatus,
   type SubAgentSummary,
 } from "./types.js";
@@ -110,6 +111,31 @@ export function buildFleet(
     const aTs = Math.max(tsToMs(a.lastEventTs), a.statusUpdatedAt ?? 0);
     const bTs = Math.max(tsToMs(b.lastEventTs), b.statusUpdatedAt ?? 0);
     return bTs - aTs;
+  });
+}
+
+/**
+ * Grafts proven-owned Plannotator UIs onto their Claude session card. Sessions with
+ * no `claudeSessionId` are deliberately dropped here — they stay visible only in the
+ * global header counter. Returns new objects; `fleet` is not mutated.
+ */
+export function attachPlannotator(
+  fleet: readonly FleetSession[],
+  plannotator: readonly PlannotatorSessionInfo[],
+): FleetSession[] {
+  const bySession = new Map<string, PlannotatorSessionInfo[]>();
+  for (const session of plannotator) {
+    const owner = session.claudeSessionId;
+    if (!owner) continue;
+    const bucket = bySession.get(owner);
+    if (bucket) bucket.push(session);
+    else bySession.set(owner, [session]);
+  }
+  if (bySession.size === 0) return [...fleet];
+
+  return fleet.map((session) => {
+    const attached = bySession.get(session.sessionId);
+    return attached ? { ...session, plannotator: attached } : { ...session };
   });
 }
 

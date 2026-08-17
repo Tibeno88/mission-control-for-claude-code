@@ -29,6 +29,22 @@ export interface SubAgentSummary {
   taskPrompt?: string;
 }
 
+/**
+ * A live Plannotator UI server. `claudeSessionId` is only present when the owning
+ * Claude session was resolved with certainty (PID ancestry), never guessed.
+ */
+export interface PlannotatorSessionInfo {
+  pid: number;
+  port: number;
+  url: string;
+  mode: string;
+  project: string;
+  label?: string;
+  /** Epoch ms. */
+  startedAt: number;
+  claudeSessionId?: string;
+}
+
 export interface FleetSession {
   sessionId: string;
   name?: string;
@@ -50,6 +66,8 @@ export interface FleetSession {
   costUSD: number;
   subAgents: SubAgentSummary[];
   subAgentCostUSD: number;
+  /** Plannotator UIs proven to belong to this session. */
+  plannotator?: PlannotatorSessionInfo[];
 }
 
 export interface HourPoint {
@@ -92,6 +110,8 @@ export interface Snapshot {
   type: "snapshot";
   fleet: FleetSession[];
   metrics: GlobalMetrics;
+  /** Every live Plannotator UI — attached and unattached alike. */
+  plannotator: PlannotatorSessionInfo[];
   generatedAt: number;
 }
 

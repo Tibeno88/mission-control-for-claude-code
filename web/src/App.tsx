@@ -35,6 +35,7 @@ export default function App() {
       <Header
         connected={connected}
         fleet={fleet}
+        plannotator={snap?.plannotator ?? []}
         notifPermission={notifPermission}
         view={view}
         onViewChange={setView}

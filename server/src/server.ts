@@ -12,7 +12,8 @@ import { BackupScheduler } from "./backup/scheduler.js";
 import { BackupService } from "./backup/service.js";
 import type { BackupStatusEvent } from "./backup/types.js";
 import { loadConfig } from "./config.js";
-import { buildFleet, buildMetrics } from "./metrics.js";
+import { attachPlannotator, buildFleet, buildMetrics } from "./metrics.js";
+import { PlannotatorRegistry } from "./plannotator.js";
 import { PricingTable } from "./pricing.js";
 import { LiveRegistry } from "./sessions.js";
 import { TranscriptStore } from "./transcripts.js";
@@ -81,6 +82,13 @@ async function main(): Promise<void> {
   await registry.start();
   console.log(`[registry] ${registry.list().length} live sessions`);
 
+  const plannotator = new PlannotatorRegistry(
+    config.plannotatorSessionsDir,
+    config.registryPollMs,
+  );
+  await plannotator.start();
+  console.log(`[plannotator] ${plannotator.list().length} live sessions`);
+
   const db = openDb(config.dbPath);
   const backupService = new BackupService(db, store, config);
   const backupScheduler = new BackupScheduler(
@@ -92,12 +100,22 @@ async function main(): Promise<void> {
   // Sessions manually removed from the grid (memory only — nothing touched on disk).
   const dismissed = new Set<string>();
 
-  const snapshot = () => ({
-    type: "snapshot" as const,
-    fleet: buildFleet(registry.list(), store, dismissed),
-    metrics: buildMetrics(store),
-    generatedAt: Date.now(),
-  });
+  const snapshot = () => {
+    const live = registry.list();
+    // Full list (attached + unattached) drives the header counter; only the proven
+    // ones are grafted onto their session card.
+    const plannotatorSessions = plannotator.listAttributed(live);
+    return {
+      type: "snapshot" as const,
+      fleet: attachPlannotator(
+        buildFleet(live, store, dismissed),
+        plannotatorSessions,
+      ),
+      metrics: buildMetrics(store),
+      plannotator: plannotatorSessions,
+      generatedAt: Date.now(),
+    };
+  };
 
   const app = new Hono();
   app.get("/api/health", (c) => c.json({ ok: true }));
@@ -109,6 +127,12 @@ async function main(): Promise<void> {
     }),
   );
   app.get("/api/metrics", (c) => c.json(buildMetrics(store)));
+  app.get("/api/plannotator", (c) =>
+    c.json({
+      sessions: plannotator.listAttributed(registry.list()),
+      generatedAt: Date.now(),
+    }),
+  );
   app.get("/api/sessions/:id/activity", async (c) => {
     const id = c.req.param("id");
     if (!SESSION_ID_RE.test(id))
@@ -182,6 +206,7 @@ async function main(): Promise<void> {
 
   wss.on("connection", (ws) => ws.send(JSON.stringify(snapshot())));
   registry.on("change", scheduleBroadcast);
+  plannotator.on("change", scheduleBroadcast);
   store.on("update", scheduleBroadcast);
   backupService.on("status", broadcastBackupStatus);
   // Heartbeat keeps relative timers and stale-PID detection fresh client-side.
@@ -194,7 +219,7 @@ async function main(): Promise<void> {
     wss.close();
     server.close();
     backupScheduler.stop();
-    await Promise.all([registry.stop(), store.stop()]);
+    await Promise.all([registry.stop(), plannotator.stop(), store.stop()]);
     db.close();
     process.exit(0);
   };

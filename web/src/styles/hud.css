@@ -820,3 +820,155 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ── Plannotator: live annotation/review UIs ─────────────────────────────── */
+
+.plan-indicator {
+  position: relative;
+  display: inline-flex;
+}
+
+.plan-count {
+  font: inherit;
+  font-family: var(--font-mono);
+  background: none;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.plan-count:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.plan-count.alert {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: var(--cyan-soft);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.plan-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+/*
+ * `.card:hover` applies a transform, which turns the card into a stacking context:
+ * the popover's own z-index is then trapped inside it and later cards in the grid
+ * paint over it. Lift the whole card instead while its popover is open.
+ * `:focus-within` covers the click that opened it; `:has()` is the belt-and-braces.
+ */
+.card:focus-within,
+.card:has(.plan-popover) {
+  z-index: 96;
+}
+
+.plan-badge {
+  font: inherit;
+  font-family: var(--font-mono);
+  color: var(--cyan);
+  border: 1px solid var(--line-strong);
+  background: var(--cyan-soft);
+  padding: 0 5px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.plan-badge:hover,
+.plan-badge:focus-visible,
+.plan-badge.open {
+  background: var(--cyan);
+  color: var(--panel-solid);
+}
+
+.plan-dropdown,
+.plan-popover {
+  position: absolute;
+  z-index: 96;
+  top: calc(100% + var(--space-1));
+  width: min(380px, 78vw);
+  padding: var(--space-2);
+  background: var(--panel-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 32px rgb(3 7 16 / 72%);
+  cursor: default;
+  text-align: left;
+}
+
+.plan-dropdown {
+  right: 0;
+}
+
+.plan-popover {
+  left: 0;
+}
+
+.plan-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+}
+
+.plan-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border-left: 2px solid var(--cyan);
+  background: var(--cyan-soft);
+}
+
+.plan-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 0.68rem;
+}
+
+.plan-mode {
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.plan-label {
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-age {
+  color: var(--text-faint);
+}
+
+.plan-url {
+  font-size: 0.7rem;
+  color: var(--amber);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.plan-url:hover,
+.plan-url:focus-visible {
+  text-decoration: underline;
+}
+
+.plan-orphan {
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+
+.plan-empty {
+  margin: 0;
+  padding: var(--space-2);
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}

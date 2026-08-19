@@ -148,6 +148,11 @@ export class TranscriptStore extends EventEmitter {
     this.watcher.on("unlink", (file: string) => {
       if (file.endsWith(".jsonl")) this.handleUnlink(file);
     });
+    // A missing ~/.claude/projects must not crash the server: without this
+    // listener the watch error would go unhandled.
+    this.watcher.on("error", (error) => {
+      console.warn(`[transcripts] watch unavailable: ${String(error)}`);
+    });
   }
 
   /** Ingests every recent sub-agent transcript under a project slug directory. */

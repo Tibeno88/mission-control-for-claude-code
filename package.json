@@ -15,8 +15,8 @@
     "start": "node server/dist/server.js",
     "backup": "yarn workspace @cmc/server build && yarn workspace @cmc/server backup",
     "test": "yarn workspace @cmc/server test",
-    "typecheck": "yarn workspace @cmc/server typecheck && yarn workspace web typecheck",
-    "pack:src": "tar --exclude='node_modules' --exclude='.git' --exclude='server/dist' --exclude='web/dist' --exclude='logs' --exclude='*.tar.gz' -czf claude-mission-control-src.tar.gz -C .. claude-mission-control"
+    "typecheck": "yarn workspace @cmc/server typecheck && yarn workspace @cmc/web typecheck",
+    "package": "bash scripts/package.sh"
   },
   "engines": {
     "node": ">=20.0.0"

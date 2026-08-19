@@ -148,6 +148,14 @@ describe("PlannotatorRegistry", () => {
     expect(registry.list()).toEqual([]);
   });
 
+  // Plannotator is an optional dependency: a machine without it must still boot.
+  test("starts without throwing when the directory does not exist", async () => {
+    const registry = new PlannotatorRegistry(path.join(root, "absent"), 60_000);
+    await expect(registry.start()).resolves.toBeUndefined();
+    expect(registry.list()).toEqual([]);
+    await registry.stop();
+  });
+
   test("attributes a session to the Claude process that spawned it", async () => {
     await fsp.writeFile(path.join(root, `${process.pid}.json`), sessionFile());
 

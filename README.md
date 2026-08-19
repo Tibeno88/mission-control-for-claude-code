@@ -1,118 +1,474 @@
 # Claude Mission Control
 
 Dashboard web **100 % local** de supervision des sessions Claude Code, en quasi
-temps réel, avec une esthétique HUD sci-fi.
+temps réel, avec une esthétique HUD sci-fi. Il lit les fichiers que Claude Code
+écrit dans `~/.claude/`, agrège tokens et coûts, et conserve un historique long
+terme indépendant de la purge des transcripts.
 
-## Fonctionnalités (V1 — observabilité)
+Le serveur écoute uniquement sur `127.0.0.1` et n'expose **aucune
+authentification** — voir [Sécurité](#sécurité).
 
-- **Vue flotte** : sessions `busy` / `waiting input` / `idle` / `ended`, par projet,
-  avec dernière activité (prompt, réponse, outil utilisé).
-- **Métriques de conso** : tokens (input / output / cache read / cache write),
-  coût estimé en USD par session, projet et période (aujourd'hui / 7 jours),
-  timeline 24 h.
-- **Temps réel** : push WebSocket alimenté par la surveillance de `~/.claude/`.
+- [Prérequis](#prérequis)
+- [Installation](#installation)
+- [Démarrage & cycle de vie](#démarrage--cycle-de-vie)
+- [Alias shell](#alias-shell)
+- [Guide fonctionnel](#guide-fonctionnel)
+- [Sources de données](#sources-de-données)
+- [Configuration](#configuration)
+- [API REST & WebSocket](#api-rest--websocket)
+- [Exploitation](#exploitation)
+- [Sécurité](#sécurité)
+- [Dépannage](#dépannage)
+- [Tests & qualité](#tests--qualité)
+- [Architecture](#architecture)
+- [Distribution](#distribution)
 
-L'interaction avec les sessions (envoi de prompts, terminal embarqué) est une
-évolution V2 — voir [BACKLOG.md](./BACKLOG.md).
+## Prérequis
+
+| Prérequis                | Détail                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Node.js ≥ 20**         | `node -v`. Le dépôt est testé sur Node 24.                                                                                      |
+| **Yarn 4**               | Fourni par corepack : `corepack enable`. Ne pas utiliser `npm` (le projet est en Yarn PnP).                                     |
+| **Réseau**               | Nécessaire à la première installation (téléchargement des dépendances) ; l'app fonctionne ensuite hors ligne.                   |
+| **Toolchain C++**        | Pour `better-sqlite3` si aucun binaire pré-compilé n'existe pour la plateforme : `sudo apt install build-essential python3`.    |
+| **Claude Code**          | Installé et utilisé au moins une fois : sans `~/.claude/projects/` ni `~/.claude/sessions/`, l'app démarre mais n'affiche rien. |
+| **Plannotator** _(opt.)_ | Recommandé : ajoute la visualisation des UI Plannotator actives. Voir [Plannotator](#plannotator-optionnel).                    |
+
+## Installation
+
+### Depuis le dépôt
+
+```bash
+git clone git@github.com:Tibeno88/claude-mission-control.git
+cd claude-mission-control
+corepack enable
+yarn install
+```
+
+### Depuis le zip distribué
+
+Le zip contient les sources, pas les dépendances : l'installation est identique
+au clone, sans l'étape `git clone`.
+
+```bash
+unzip claude-mission-control-<version>.zip
+cd claude-mission-control-<version>
+corepack enable
+yarn install
+yarn build
+yarn start        # http://127.0.0.1:4517
+```
+
+Vérifiez au préalable l'intégrité de l'archive avec la somme sha256 transmise :
+
+```bash
+sha256sum claude-mission-control-<version>.zip
+```
+
+## Démarrage & cycle de vie
+
+### Mode développement
+
+```bash
+yarn dev
+```
+
+Lance deux processus en parallèle (via `concurrently`) :
+
+- l'**API** sur `http://127.0.0.1:4517` (serveur Hono + WebSocket) ;
+- **Vite** sur `http://localhost:5173`, qui proxifie `/api` et `/ws` vers l'API.
+
+C'est l'URL Vite (`:5173`) qu'il faut ouvrir en développement (rechargement à
+chaud de l'UI).
+
+### Mode production locale
+
+```bash
+yarn build        # compile l'UI (Vite) puis le serveur (tsc)
+yarn start        # sert l'API ET l'UI buildée sur http://127.0.0.1:4517
+```
+
+En production, l'UI compilée (`web/dist`) est servie directement par le serveur,
+avec repli SPA sur `index.html`. Une seule URL, un seul processus.
+
+> ⚠️ **Yarn PnP** : lancez toujours le serveur via `yarn start` (ou
+> `yarn node server/dist/server.js`). Un `node server/dist/server.js` nu échoue
+> avec `ERR_MODULE_NOT_FOUND` car il ne charge pas le runtime PnP.
+
+### Arrêt
+
+`Ctrl+C` sur le processus, ou `cmc-stop` si vous utilisez les alias. Le serveur
+intercepte `SIGINT`/`SIGTERM` et ferme proprement watchers, WebSocket et base
+SQLite.
+
+## Alias shell
+
+Le dépôt fournit un pré-script prêt à l'emploi, `scripts/cmc-aliases.sh`,
+compatible bash et zsh. Il se localise tout seul (y compris à travers un lien
+symbolique), il est sourçable plusieurs fois sans effet de bord, et `cmc-help`
+liste tout ce qu'il expose.
+
+Deux façons de l'installer, au choix :
+
+```bash
+# 1) source direct — dans ~/.zshrc, ~/.bashrc ou votre fichier d'alias
+source /chemin/vers/claude-mission-control/scripts/cmc-aliases.sh
+
+# 2) lien symbolique — chargé automatiquement par oh-my-zsh
+#    (oh-my-zsh source tout *.zsh de custom/, d'où l'extension du lien)
+ln -s /chemin/vers/claude-mission-control/scripts/cmc-aliases.sh \
+      "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/cmc-aliases.zsh"
+```
+
+La seconde voie est préférable si vous mettez le dépôt à jour : les alias suivent
+le code automatiquement.
+
+| Alias         | Effet                                                                 |
+| ------------- | --------------------------------------------------------------------- |
+| `cmc-start`   | Démarre API + UI (mode dev) en tâche de fond, log dans `logs/app.log` |
+| `cmc-stop`    | Arrête tous les processus du workspace                                |
+| `cmc-restart` | `cmc-stop` puis `cmc-start`                                           |
+| `cmc-status`  | Santé de l'API, compteurs de la flotte, coût du jour                  |
+| `cmc-logs`    | `tail -f` du log applicatif                                           |
+| `cmc-open`    | Ouvre l'UI : Vite (`:5173`) si elle répond, sinon `:4517`             |
+| `cmc-build`   | `yarn build`                                                          |
+| `cmc-test`    | `yarn test`                                                           |
+| `cmc-backup`  | Sauvegarde/archivage manuel one-shot                                  |
+| `cmc-package` | Produit le zip distribuable dans `dist-pkg/`                          |
+| `cmc-update`  | `git pull` (si dépôt git) puis install + build                        |
+| `cmc-cd`      | Se place dans le dossier du projet                                    |
+| `cmc-help`    | Affiche cette liste                                                   |
+
+Variables reconnues : `CMC_DIR` (racine, déduite automatiquement), `CMC_LOG_DIR`
+(défaut `$CMC_DIR/logs`), `CMC_URL` / `CMC_PORT` pour l'**API** (défaut
+`http://127.0.0.1:4517`), `CMC_DEV_URL` / `CMC_DEV_PORT` pour l'**UI Vite** en
+mode développement (défaut `http://localhost:5173`).
+
+## Guide fonctionnel
+
+L'UI a deux onglets, **LIVE** et **ARCHIVE**, commutables depuis l'en-tête.
+
+### En-tête (commun)
+
+- **Compteurs `RUN` / `WAIT` / `IDLE`** : nombre de sessions par statut. Le
+  compteur `WAIT` passe en alerte dès qu'une session attend une saisie.
+- **Indicateur Plannotator** : nombre d'UI Plannotator actives (survol pour la
+  liste et les liens).
+- **Horloge** et **uplink** : `UPLINK ONLINE` quand le WebSocket est connecté,
+  `UPLINK LOST` sinon (l'UI tente une reconnexion).
+- **Cloche de notifications** : état de l'autorisation navigateur
+  (`granted` / `denied` / `default`) ; masquée si le navigateur ne supporte pas
+  les notifications.
+
+### Onglet LIVE
+
+**Bandeau de métriques** (`MetricsBar`) :
+
+| Tuile                    | Contenu                                          |
+| ------------------------ | ------------------------------------------------ |
+| `TOKENS TODAY`           | Tokens entrée/sortie du jour                     |
+| `CACHE TODAY`            | Tokens de lecture et d'écriture de cache du jour |
+| `COST TODAY`             | Coût estimé en USD du jour                       |
+| `COST 7 DAYS`            | Coût estimé sur 7 jours                          |
+| `COST / HOUR · LAST 24H` | Timeline horaire sur 24 h (sparkline)            |
+| `TOP PROJECTS · SCAN`    | Projets les plus coûteux sur la fenêtre de scan  |
+
+**Grille de flotte** (`FleetGrid` / `SessionCard`) — une carte par session :
+
+- **statut** : `busy` (en cours), `waiting` (attend une saisie, avec le motif
+  `waitingFor`), `idle`, `ended`, `missing` (le registre live a disparu alors que
+  le transcript existe encore) ;
+- projet, `cwd`, **branche git**, modèles utilisés, nombre de prompts, tokens,
+  coût estimé ;
+- **badge sous-agents** : nombre de sous-agents (`Task`/`Agent`) lancés dans la
+  session et part du coût qui leur est imputable ;
+- **bouton de retrait** sur les sessions `missing` : retire la carte de la
+  grille, **en mémoire serveur uniquement** — aucun fichier n'est supprimé sur
+  disque, et un redémarrage du serveur la fait réapparaître ;
+- clic sur une carte → panneau de détail.
+
+**Panneau de détail** (`SessionDetail`) :
+
+- fil d'activité récent (prompts, réponses, appels d'outils, résultats, messages
+  système) ;
+- ventilation **par sous-agent** : type d'agent attribué, extrait du prompt de la
+  tâche, modèles, tokens, coût, première et dernière activité ;
+- UI Plannotator rattachées à la session, avec lien direct.
+
+**Notifications** : quand une session passe à `waiting`, l'UI envoie une
+notification navigateur (titre « Session en attente », corps = motif d'attente)
+et affiche un badge `[n WAITING]` dans le titre de l'onglet. L'autorisation est
+demandée à la première transition, pas au chargement. Si elle a été refusée, la
+cloche est barrée : il faut débloquer les notifications dans les réglages du
+navigateur pour ce site.
+
+### Onglet ARCHIVE
+
+- **Run de sauvegarde** : bouton de déclenchement immédiat, avec suivi en direct
+  (`running` / `done` / `error`) poussé par WebSocket.
+- **Historique** : totaux par période (`today`, `7d`, `30d`, `all`), ventilation
+  par compte et par projet, timeline journalière, liste des runs passés.
+- **Comptes** : création/suppression de comptes (libellé, email, organisation,
+  couleur).
+- **Mapping projet → compte** : rattachement **manuel** de chaque `project_slug`
+  à un compte ; il n'y a aucune attribution automatique. C'est ce mapping qui
+  alimente la ventilation des coûts par compte.
+- **Configuration du scheduler** : activation, expression cron, rétention en
+  jours. Persistée en base, appliquée sans redémarrage.
+- **Navigateur d'archives** par session : chemin, taille brute → gzip, sha256,
+  date d'archivage. Le téléchargement du `.jsonl.gz` depuis l'UI n'est pas encore
+  disponible — voir [BACKLOG.md](./BACKLOG.md).
 
 ## Sources de données
 
-| Source                              | Usage                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------ |
-| `~/.claude/sessions/*.json`         | Registre live des sessions (statut `busy`/`waiting`/`idle`, PID, cwd)    |
-| `~/.claude/projects/<slug>/*.jsonl` | Transcripts : usage tokens par tour, modèle, activité                    |
-| `$CMC_DATA_DIR/cmc.db`              | SQLite local : runs de sauvegarde, snapshots de sessions, mapping compte |
-| `$CMC_DATA_DIR/archives/`           | Transcripts archivés (gzip, dédupliqués par sha256)                      |
+| Source                                 | Usage                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| `~/.claude/sessions/<pid>.json`        | Registre live des sessions (statut `busy`/`waiting`/`idle`, PID, cwd) |
+| `~/.claude/projects/<slug>/*.jsonl`    | Transcripts : usage tokens par tour, modèle, activité                 |
+| `<slug>/<sessionId>/subagents/*.jsonl` | Transcripts des sous-agents (`Task`), agrégés par session             |
+| `~/.plannotator/sessions/<pid>.json`   | Registre des UI Plannotator actives (optionnel)                       |
+| `$CMC_DATA_DIR/cmc.db`                 | SQLite local : runs, snapshots de sessions, archives, comptes, config |
+| `$CMC_DATA_DIR/archives/`              | Transcripts archivés (gzip, dédupliqués par sha256)                   |
 
-Les fichiers sont lus en **tail incrémental** (offsets persistés en mémoire),
-jamais re-parsés intégralement après le scan initial.
+Les transcripts sont lus en **tail incrémental** (offsets conservés en mémoire) :
+après le scan initial, un fichier n'est jamais re-parsé intégralement. Les
+répertoires sont surveillés par `chokidar`, avec un poll de secours toutes les
+3 s pour détecter les registres périmés (processus tué). Un répertoire absent ou
+illisible est journalisé en avertissement et n'interrompt pas le serveur.
 
-Le pricing des modèles est embarqué (source [LiteLLM](https://github.com/BerriAI/litellm))
-et rafraîchi au démarrage si le réseau est disponible.
+Le pricing des modèles est embarqué (source
+[LiteLLM](https://github.com/BerriAI/litellm)) et rafraîchi au démarrage si le
+réseau est disponible ; sinon la table embarquée est utilisée.
 
-## Sauvegarde & archivage (V2)
+### Plannotator (optionnel)
 
-Claude Mission Control conserve un historique local, indépendant de la purge
-des transcripts par Claude Code, dans un répertoire de données dédié :
+Plannotator fournit une UI d'annotation de plans et de revue de code. S'il est
+installé, Mission Control affiche les UI actives : compteur dans l'en-tête,
+panneau et lien direct sur la carte de la session concernée. L'attribution à une
+session Claude n'est faite que lorsqu'elle est **certaine** (filiation de PID) ;
+sinon l'UI reste comptée mais non rattachée.
 
-- **`CMC_DATA_DIR`** (défaut `~/.claude-mission-control/`) contient :
-  - `cmc.db` — base SQLite (WAL) : runs de sauvegarde (`backup_runs`),
-    snapshots agrégés par session (`session_snapshots`), métadonnées
-    d'archives (`archives`), configuration de sauvegarde
-    (`backup_config`) et mapping projet → compte (`project_account_map`,
-    `accounts`).
-  - `archives/` — transcripts `.jsonl` archivés en **gzip**, dédupliqués par
-    hash SHA-256 (un même contenu n'est jamais réarchivé), avec rétention
-    configurable en jours.
+Sans Plannotator, tout fonctionne normalement : le compteur reste à zéro et
+`/api/plannotator` renvoie une liste vide. Si son répertoire de données n'est pas
+`~/.plannotator`, déclarez-le via `CMC_PLANNOTATOR_DIR` (ou la variable
+`PLANNOTATOR_DATA_DIR` de Plannotator lui-même, reconnue en repli).
 
-### Déclencher une sauvegarde
+## Configuration
 
-Deux modes, tous deux orchestrés par le même `BackupService` :
+Tout se configure par variables d'environnement, à passer au serveur.
 
-- **Manuel** :
-  - via le bouton de la page **ARCHIVE** de l'UI (déclenche un run immédiat,
-    suivi en direct via WebSocket) ;
-  - via la CLI one-shot, sans démarrer le serveur HTTP :
-    ```bash
-    npm run build -w server && npm run backup -w server
-    # ou, depuis la racine, build + run en une commande :
-    npm run backup
-    ```
-    La commande charge la config, ouvre `cmc.db`, scanne les transcripts
-    récents (`CMC_SCAN_DAYS`), exécute un run `"manual"`, imprime un résumé
-    (sessions, fichiers archivés, taille brute → gzip, durée, erreurs
-    éventuelles) puis se termine (exit code `0` en succès, `1` en erreur).
-- **Planifié** : un scheduler interne basé sur **node-cron**
-  (`server/src/backup/scheduler.ts`), activable et configurable (expression
-  cron, rétention) directement depuis la page **ARCHIVE** — persisté dans
-  `backup_config`.
+| Variable              | Défaut                      | Description                                                                    |
+| --------------------- | --------------------------- | ------------------------------------------------------------------------------ |
+| `CMC_PORT`            | `4517`                      | Port du serveur (toujours bindé sur `127.0.0.1`). Entier positif obligatoire.  |
+| `CMC_CLAUDE_DIR`      | `~/.claude`                 | Racine des données Claude Code (`projects/` et `sessions/` en dérivent).       |
+| `CMC_SCAN_DAYS`       | `7`                         | Fenêtre de scan des transcripts, en jours. Entier positif obligatoire.         |
+| `CMC_DATA_DIR`        | `~/.claude-mission-control` | Répertoire de données CMC (`cmc.db` + `archives/`).                            |
+| `CMC_PLANNOTATOR_DIR` | `~/.plannotator`            | Répertoire de données Plannotator. Repli sur `PLANNOTATOR_DATA_DIR`. `~` géré. |
 
-### Attribution de compte
+Une valeur non entière ou négative pour `CMC_PORT` / `CMC_SCAN_DAYS` fait échouer
+le démarrage avec un message explicite, plutôt que de retomber silencieusement
+sur le défaut.
 
-Chaque projet (`project_slug`) peut être rattaché manuellement à un compte
-(employeur, client, etc.) via la table `project_account_map` (édition depuis la
-page **ARCHIVE**). Cette attribution alimente la ventilation des coûts par
-compte dans l'historique ; il n'y a pas d'attribution automatique.
-
-### Page de supervision ARCHIVE
-
-L'onglet **ARCHIVE** de l'UI (à côté de **LIVE**) affiche : l'état du dernier
-run (running / done / error), l'historique des runs, le mapping projet →
-compte, la configuration du scheduler et un navigateur d'archives par session
-(métadonnées uniquement pour l'instant — voir [BACKLOG.md](./BACKLOG.md)).
-
-## Démarrage
+Exemple :
 
 ```bash
-npm install
-npm run dev        # serveur API :4517 + Vite :5173 (http://localhost:5173)
+CMC_PORT=4600 CMC_SCAN_DAYS=30 CMC_DATA_DIR=~/backups/cmc yarn start
 ```
 
-Production locale :
+**Constantes non configurables** (dans `server/src/config.ts`), utiles pour
+interpréter la latence de l'UI :
+
+| Constante             | Valeur    | Rôle                                          |
+| --------------------- | --------- | --------------------------------------------- |
+| `registryPollMs`      | 3 000 ms  | Poll de secours des registres de sessions     |
+| `broadcastDebounceMs` | 500 ms    | Regroupement des diffusions WebSocket         |
+| Heartbeat WS          | 10 000 ms | Rafraîchit les compteurs relatifs côté client |
+
+**Réglages persistés en base** (table `backup_config`, modifiables depuis
+l'onglet ARCHIVE) : `enabled` (défaut `false`), `cron` (défaut `0 * * * *`, soit
+toutes les heures), `retentionDays` (défaut `0` = rétention infinie),
+`backupDir`.
+
+## API REST & WebSocket
+
+Toutes les routes sont servies sur `http://127.0.0.1:$CMC_PORT`.
+
+### Supervision live
+
+| Méthode | Route                        | Réponse                                                            |
+| ------- | ---------------------------- | ------------------------------------------------------------------ |
+| `GET`   | `/api/health`                | `{ ok: true }`                                                     |
+| `GET`   | `/api/snapshot`              | Flotte + métriques + Plannotator en un appel (ce que pousse le WS) |
+| `GET`   | `/api/fleet`                 | Sessions uniquement                                                |
+| `GET`   | `/api/metrics`               | Métriques globales (jour, 7 j, par projet, par modèle, timeline)   |
+| `GET`   | `/api/sessions/:id/activity` | Activité récente. `?limit=` entre 1 et 300 (défaut 80)             |
+| `POST`  | `/api/sessions/:id/dismiss`  | Retire une session non live de la grille. `409` si elle est live   |
+| `GET`   | `/api/plannotator`           | UI Plannotator actives, avec attribution de session                |
+
+Les identifiants de session sont validés (`[0-9a-fA-F-]{8,64}`) ; une valeur
+invalide renvoie `400`.
+
+### Sauvegarde & historique
+
+| Méthode  | Route                 | Rôle                                              |
+| -------- | --------------------- | ------------------------------------------------- |
+| `POST`   | `/api/backup/run`     | Déclenche un run manuel                           |
+| `GET`    | `/api/backup/runs`    | Liste des runs                                    |
+| `GET`    | `/api/backup/history` | Historique agrégé (`?period=today\|7d\|30d\|all`) |
+| `GET`    | `/api/backup/config`  | Configuration du scheduler                        |
+| `PUT`    | `/api/backup/config`  | Met à jour activation / cron / rétention          |
+| `GET`    | `/api/accounts`       | Liste des comptes                                 |
+| `POST`   | `/api/accounts`       | Crée un compte                                    |
+| `DELETE` | `/api/accounts/:id`   | Supprime un compte                                |
+| `GET`    | `/api/project-map`    | Mapping projet → compte                           |
+| `PUT`    | `/api/project-map`    | Met à jour le mapping                             |
+| `GET`    | `/api/archives`       | Métadonnées des archives                          |
+
+### WebSocket
+
+Canal unique sur `/ws`. Le serveur envoie un snapshot complet à la connexion,
+puis à chaque changement (débounce 500 ms) et toutes les 10 s :
+
+| Message         | Contenu                                                         |
+| --------------- | --------------------------------------------------------------- |
+| `snapshot`      | `{ fleet, metrics, plannotator, generatedAt }`                  |
+| `backup_status` | `{ status: running\|done\|error, run?, message?, generatedAt }` |
+
+## Exploitation
+
+### Sauvegarde manuelle
+
+Depuis l'UI (bouton de l'onglet ARCHIVE) ou en ligne de commande, sans démarrer
+le serveur HTTP :
 
 ```bash
-npm run build
-npm start          # sert l'UI buildée sur http://127.0.0.1:4517
+yarn backup
 ```
 
-## Configuration (variables d'environnement)
+La commande charge la configuration, ouvre `cmc.db`, scanne les transcripts de la
+fenêtre `CMC_SCAN_DAYS`, exécute un run `manual` et imprime un résumé (run id,
+sessions, fichiers archivés, taille brute → gzip, durée, erreur éventuelle).
+**Code de sortie : `0` en succès, `1` si le run porte une erreur ou si la
+commande échoue** — utilisable dans un cron externe.
 
-| Variable         | Défaut                      | Description                                        |
-| ---------------- | --------------------------- | -------------------------------------------------- |
-| `CMC_PORT`       | `4517`                      | Port du serveur (bindé sur 127.0.0.1)              |
-| `CMC_CLAUDE_DIR` | `~/.claude`                 | Racine des données Claude Code                     |
-| `CMC_SCAN_DAYS`  | `7`                         | Fenêtre de scan des transcripts (jours)            |
-| `CMC_DATA_DIR`   | `~/.claude-mission-control` | Répertoire de données CMC (`cmc.db` + `archives/`) |
+### Sauvegarde planifiée
 
-## Tests
+Scheduler interne basé sur `node-cron`, activable depuis l'onglet ARCHIVE
+(expression cron + rétention). La configuration est persistée en base et
+rechargée au démarrage.
+
+### Rétention
+
+`retentionDays = 0` signifie **rétention infinie** (aucune purge). Au-delà, les
+archives plus anciennes que le seuil sont supprimées (lignes en base + fichiers
+`.gz`), puis les `session_snapshots` et `backup_runs` orphelins sont purgés. Les
+suppressions de fichiers sont confinées à `backupDir` : un chemin extérieur n'est
+jamais touché.
+
+### Déduplication
+
+Un contenu déjà archivé (même sha256) n'est jamais réarchivé. La contrainte
+d'unicité est portée par la colonne `archives.sha256`.
+
+### Inspection de la base
 
 ```bash
-npm test           # vitest (parsing JSONL, pricing, agrégation)
+sqlite3 ~/.claude-mission-control/cmc.db '.tables'
+sqlite3 ~/.claude-mission-control/cmc.db \
+  'SELECT id, mode, sessions_count, files_archived, error FROM backup_runs ORDER BY id DESC LIMIT 5;'
+```
+
+Tables : `backup_runs`, `session_snapshots`, `archives`, `accounts`,
+`project_account_map`, `backup_config`. La base est en mode WAL.
+
+### Logs
+
+Le serveur écrit sur la sortie standard. Avec `cmc-start`, tout est redirigé vers
+`logs/app.log` (`cmc-logs` pour le suivre). Sinon, redirigez vous-même la sortie
+du processus.
+
+## Sécurité
+
+- Le serveur est bindé sur `127.0.0.1` et **n'a aucune authentification**. Ne
+  l'exposez pas sur un réseau, ne le placez pas derrière un reverse proxy
+  accessible : quiconque atteint le port lit tous vos transcripts.
+- Les données lues (prompts, réponses, chemins de projets) sont potentiellement
+  confidentielles. `CMC_DATA_DIR` (base + archives) reste strictement local et
+  n'est jamais inclus dans un zip de distribution.
+- Les URL fournies par Plannotator sont filtrées : seuls les schémas `http:` et
+  `https:` sont rendus côté client.
+- L'app est en **lecture seule** sur `~/.claude/` : elle n'écrit jamais dans les
+  données de Claude Code. Le retrait d'une session de la grille est un état en
+  mémoire, pas une suppression.
+
+## Dépannage
+
+| Symptôme                                 | Cause probable                                            | Vérification / correction                                                     |
+| ---------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ERR_MODULE_NOT_FOUND` au lancement      | `node` lancé sans le runtime Yarn PnP                     | Utiliser `yarn start` (ou `yarn node server/dist/server.js`)                  |
+| `yarn: command not found`                | Corepack non activé                                       | `corepack enable`, puis `yarn -v` (doit afficher `4.x`)                       |
+| `EADDRINUSE` sur 4517                    | Une instance tourne déjà, ou le port est pris             | `cmc-status`, `ss -tlnp \| grep 4517`, ou changer `CMC_PORT`                  |
+| `UPLINK LOST` dans l'en-tête             | Serveur arrêté, ou UI ouverte sur le mauvais port         | En dev, ouvrir `:5173` (pas `:4517`) ; vérifier `cmc-status`                  |
+| Aucune session affichée                  | Mauvais `CMC_CLAUDE_DIR`, ou fenêtre de scan trop courte  | `ls ~/.claude/projects` ; augmenter `CMC_SCAN_DAYS`                           |
+| Notifications absentes                   | Autorisation refusée pour le site                         | Cloche barrée = `denied` : débloquer dans les réglages du navigateur          |
+| Échec d'installation de `better-sqlite3` | Pas de binaire pré-compilé pour la plateforme             | `sudo apt install build-essential python3` puis `yarn install`                |
+| Compteur Plannotator toujours à zéro     | Plannotator absent, ou répertoire de données non standard | Optionnel par nature ; sinon définir `CMC_PLANNOTATOR_DIR`                    |
+| Coûts qui semblent faux                  | Table de pricing non rafraîchie (hors ligne au démarrage) | Les logs indiquent `[pricing] refreshed N claude models` ; sinon table locale |
+
+## Tests & qualité
+
+```bash
+yarn test         # vitest : parsing JSONL, pricing, agrégation, backup, plannotator
+yarn typecheck    # tsc --noEmit sur les deux workspaces
 ```
 
 ## Architecture
 
 ```
-server/  Node + TypeScript + Hono — watchers (chokidar), agrégation, REST + WS
-web/     React + Vite — HUD (FleetGrid, MetricsBar, SessionDetail)
+server/                       Node + TypeScript + Hono
+  src/
+    server.ts                 API REST, WebSocket, service de fichiers statiques
+    config.ts                 chargement des variables d'environnement
+    sessions.ts               registre live (~/.claude/sessions)
+    transcripts.ts            tail incrémental des transcripts + sous-agents
+    metrics.ts                agrégation flotte et métriques globales
+    pricing.ts                table de pricing (embarquée + refresh LiteLLM)
+    plannotator.ts            registre des UI Plannotator + attribution par PID
+    proc.ts                   lecture /proc, filiation de PID
+    backup/                   db, service, scheduler, archivage, rétention, CLI, API
+  test/                       vitest
+
+web/                          React 19 + Vite
+  src/
+    App.tsx                   composition des vues LIVE / ARCHIVE
+    components/               Header, MetricsBar, FleetGrid, SessionCard,
+                              SessionDetail, Sparkline, PlannotatorPanel, backup/
+    lib/                      useSnapshot (WS), useBackup, useNotifications, format
+    styles/                   tokens, global, hud, backup
+
+scripts/
+  package.sh                  production du zip distribuable
+  cmc-aliases.sh              alias shell cmc-*
 ```
+
+## Distribution
+
+```bash
+yarn package                        # dist-pkg/claude-mission-control-<version>.zip
+bash scripts/package.sh --worktree  # inclut aussi les modifications non committées
+```
+
+Le zip est construit à partir de git : rien de non suivi ni d'ignoré ne peut y
+entrer. Le script retire en plus le contenu interne (`BACKLOG.md`, `docs/`,
+`.claude/`, `.github/`, `package-lock.json`, tout `*.local.*`), génère un
+`INSTALL.md`, puis **vérifie le contenu réel de l'archive** et la supprime si un
+motif interdit apparaît. Il affiche enfin la taille et le sha256 à transmettre
+avec le fichier.
+
+Contenu : sources `server/` et `web/`, manifestes, `yarn.lock`, artefacts Yarn
+PnP, `scripts/`, `README.md`, `INSTALL.md`. Ni dépendances, ni build, ni données.
+
+---
+
+L'interaction avec les sessions (envoi de prompts, terminal embarqué) et les
+reliquats d'archivage sont suivis dans [BACKLOG.md](./BACKLOG.md).

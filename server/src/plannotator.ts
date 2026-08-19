@@ -134,6 +134,13 @@ export class PlannotatorRegistry extends EventEmitter {
     this.watcher.on("add", schedule);
     this.watcher.on("change", schedule);
     this.watcher.on("unlink", schedule);
+    // Plannotator is optional: without this listener an unwatchable directory
+    // (never installed, removed, permission denied) surfaces as an unhandled
+    // 'error' and takes the whole server down. The poll below still picks the
+    // directory up if it appears later.
+    this.watcher.on("error", (error) => {
+      console.warn(`[plannotator] watch unavailable: ${String(error)}`);
+    });
     // Poll as safety net: a killed process leaves a stale file behind.
     this.pollTimer = setInterval(() => void this.refresh(), this.pollMs);
     this.pollTimer.unref();

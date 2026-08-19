@@ -8,6 +8,10 @@ coverage/
 
 *.tar.gz
 
+# Artefacts de distribution (yarn package)
+dist-pkg/
+*.zip
+
 # Yarn v4 local artifacts
 .yarn/install-state.gz
 .yarn/unplugged/

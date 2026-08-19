@@ -67,6 +67,11 @@ export class LiveRegistry extends EventEmitter {
     this.watcher.on("add", schedule);
     this.watcher.on("change", schedule);
     this.watcher.on("unlink", schedule);
+    // A missing ~/.claude/sessions (Claude Code never run yet) must not crash the
+    // server: without this listener the watch error would go unhandled.
+    this.watcher.on("error", (error) => {
+      console.warn(`[registry] watch unavailable: ${String(error)}`);
+    });
     // Poll as safety net: a killed process leaves a stale file behind.
     this.pollTimer = setInterval(() => void this.refresh(), this.pollMs);
     this.pollTimer.unref();

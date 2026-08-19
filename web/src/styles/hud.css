@@ -876,11 +876,16 @@
   transition: background var(--dur-fast) var(--ease-out);
 }
 
+.plan-badge.active {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
 .plan-badge:hover,
 .plan-badge:focus-visible,
 .plan-badge.open {
   background: var(--cyan);
   color: var(--panel-solid);
+  animation: none;
 }
 
 .plan-dropdown,

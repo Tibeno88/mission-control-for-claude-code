@@ -136,7 +136,7 @@ export function PlannotatorBadge({ sessions }: PlannotatorBadgeProps) {
     >
       <button
         type="button"
-        className={`plan-badge ${open ? "open" : ""}`}
+        className={`plan-badge ${sessions.length > 0 ? "active" : ""} ${open ? "open" : ""}`}
         aria-expanded={open}
         aria-label={`${sessions.length} session(s) Plannotator sur cette session Claude`}
         title="Sessions Plannotator de cette session Claude"

@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { WebSocketServer } from "ws";
 import { registerBackupRoutes } from "./backup/api.js";
 import { openDb } from "./backup/db.js";
+import { insertRequestEvent } from "./backup/request-events.js";
 import { BackupScheduler } from "./backup/scheduler.js";
 import { BackupService } from "./backup/service.js";
 import type { BackupStatusEvent } from "./backup/types.js";
@@ -68,10 +69,15 @@ async function main(): Promise<void> {
       console.log(`[pricing] refreshed ${updated} claude models from LiteLLM`);
   });
 
+  // Opened before the store so the ingestion sink below can persist request
+  // facts as transcripts are tailed, not only at backup time.
+  const db = openDb(config.dbPath);
+
   const store = new TranscriptStore(
     config.projectsDir,
     pricing,
     Date.now() - config.scanDays * DAY_MS,
+    (event) => insertRequestEvent(db, event),
   );
   await store.init();
   console.log(
@@ -89,8 +95,7 @@ async function main(): Promise<void> {
   await plannotator.start();
   console.log(`[plannotator] ${plannotator.list().length} live sessions`);
 
-  const db = openDb(config.dbPath);
-  const backupService = new BackupService(db, store, config);
+  const backupService = new BackupService(db, store, config, pricing);
   const backupScheduler = new BackupScheduler(
     backupService,
     db,

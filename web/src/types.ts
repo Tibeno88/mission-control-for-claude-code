@@ -211,6 +211,28 @@ export interface HistoryResponse {
   runs: BackupRun[];
 }
 
+export type MetricsBucket = "day" | "week" | "month";
+
+export interface MetricsPeriodPoint {
+  bucket: string;
+  model: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUSD: number;
+  avgCostUSD: number;
+  avgOutputTokens: number;
+}
+
+export interface MetricsPeriodsResponse {
+  bucket: MetricsBucket;
+  points: MetricsPeriodPoint[];
+  purgedBefore: string | null;
+  note?: string;
+}
+
 export type BackupStatusPhase = "idle" | "running" | "done" | "error";
 
 export interface BackupStatusMessage {

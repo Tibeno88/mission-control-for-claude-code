@@ -1,9 +1,10 @@
 import { EventEmitter } from "node:events";
 import type Database from "better-sqlite3";
 import type { Config } from "../config.js";
+import { PricingTable } from "../pricing.js";
 import type { SessionAgg, TranscriptStore } from "../transcripts.js";
 import { archiveTranscript } from "./archive.js";
-import { getBackupConfig } from "./db.js";
+import { getBackupConfig, resolveAccountId } from "./db.js";
 import { applyRetention } from "./retention.js";
 import type { BackupMode, BackupRun } from "./types.js";
 
@@ -17,10 +18,6 @@ interface BackupRunRow {
   bytes_raw: number;
   bytes_gz: number;
   error: string | null;
-}
-
-interface AccountMapRow {
-  account_id: number | null;
 }
 
 function rowToRun(row: BackupRunRow): BackupRun {
@@ -37,32 +34,38 @@ function rowToRun(row: BackupRunRow): BackupRun {
   };
 }
 
-function resolveAccountId(
-  db: Database.Database,
-  projectSlug: string,
-): number | null {
-  const row = db
-    .prepare(
-      "SELECT account_id FROM project_account_map WHERE project_slug = ?",
-    )
-    .get(projectSlug) as AccountMapRow | undefined;
-  return row?.account_id ?? null;
-}
-
 function insertSnapshot(
   db: Database.Database,
   runId: number,
   session: SessionAgg,
   accountId: number | null,
+  pricing: PricingTable,
 ): void {
   const cacheWriteTokens =
     session.usage.cacheWrite5mTokens + session.usage.cacheWrite1hTokens;
+  // A session's rate_* columns and pricing_source only make sense when it used
+  // a single model — a multi-model session has no single $/token rate to
+  // store without fabricating a blended figure. request_events (Phase 1)
+  // carries the exact per-request rate regardless of model mix; this snapshot
+  // stays a best-effort convenience on top of it.
+  const models = [...session.models];
+  const singleModel = models.length === 1 ? models[0] : undefined;
+  const rates = singleModel ? pricing.resolve(singleModel) : undefined;
+  const pricingSource = singleModel
+    ? pricing.pricingSource(singleModel)
+    : models.length > 1
+      ? "mixed"
+      : null;
+
   db.prepare(
     `INSERT INTO session_snapshots
        (run_id, session_id, project_slug, cwd, git_branch, account_id, models,
         input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
-        cost_usd, prompts, sub_agent_cost_usd, first_ts, last_ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        cache_write_5m_tokens, cache_write_1h_tokens,
+        cost_usd, prompts, sub_agent_cost_usd, first_ts, last_ts,
+        rate_input, rate_output, rate_cache_read, rate_cache_write_5m,
+        rate_cache_write_1h, pricing_source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     runId,
     session.sessionId,
@@ -70,16 +73,24 @@ function insertSnapshot(
     session.cwd ?? null,
     session.gitBranch ?? null,
     accountId,
-    JSON.stringify([...session.models]),
+    JSON.stringify(models),
     session.usage.inputTokens,
     session.usage.outputTokens,
     session.usage.cacheReadTokens,
     cacheWriteTokens,
+    session.usage.cacheWrite5mTokens,
+    session.usage.cacheWrite1hTokens,
     session.costUSD,
     session.prompts,
     session.subAgentCostUSD,
     session.firstTs ?? null,
     session.lastTs ?? null,
+    rates?.input ?? null,
+    rates?.output ?? null,
+    rates?.cacheRead ?? null,
+    rates?.cacheWrite5m ?? null,
+    rates?.cacheWrite1h ?? null,
+    pricingSource,
   );
 }
 
@@ -96,6 +107,7 @@ export class BackupService extends EventEmitter {
     private readonly db: Database.Database,
     private readonly store: TranscriptStore,
     private readonly config: Config,
+    private readonly pricing: PricingTable = new PricingTable(),
   ) {
     super();
   }
@@ -134,7 +146,7 @@ export class BackupService extends EventEmitter {
 
       for (const session of this.store.sessions()) {
         const accountId = resolveAccountId(this.db, session.projectSlug);
-        insertSnapshot(this.db, runId, session, accountId);
+        insertSnapshot(this.db, runId, session, accountId, this.pricing);
         sessionsCount += 1;
 
         const archived = await archiveTranscript(

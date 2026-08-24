@@ -11,6 +11,30 @@ import {
   type UsageTotals,
 } from "./types.js";
 
+/**
+ * One billable LLM request, emitted at ingestion time (not at backup time) so
+ * the fact survives independently of the session it belongs to. `dedupeKey`
+ * is always populated — falls back to a per-(session,agent) synthetic counter
+ * when the source line carries no message id, so it can still satisfy a
+ * NOT NULL/UNIQUE constraint downstream.
+ */
+export interface RequestEvent {
+  sessionId: string;
+  agentId?: string;
+  projectSlug: string;
+  model: string;
+  ts: string;
+  usage: UsageTotals;
+  costUSD: number;
+  rateInput?: number;
+  rateOutput?: number;
+  rateCacheRead?: number;
+  rateCacheWrite5m?: number;
+  rateCacheWrite1h?: number;
+  pricingSource?: string;
+  dedupeKey: string;
+}
+
 /** Running aggregate for one sub-agent transcript within a session. */
 export interface SubAgentAgg {
   agentId: string;
@@ -84,14 +108,59 @@ export class TranscriptStore extends EventEmitter {
   private readonly hourBuckets = new Map<string, HourStats>();
   private readonly modelBuckets = new Map<string, ModelStats>();
   private readonly ingestChains = new Map<string, Promise<void>>();
+  private readonly missingDedupeCounters = new Map<string, number>();
   private watcher?: FSWatcher;
 
   constructor(
     private readonly projectsDir: string,
     private readonly pricing: PricingTable,
     private readonly cutoffMs: number,
+    private readonly onRequest?: (event: RequestEvent) => void,
   ) {
     super();
+  }
+
+  /** Falls back to a synthetic-but-unique key when the source line has none. */
+  private resolveDedupeKey(
+    sessionId: string,
+    agentId: string | undefined,
+    dedupeKey: string | undefined,
+  ): string {
+    if (dedupeKey) return dedupeKey;
+    const counterKey = `${sessionId}:${agentId ?? ""}`;
+    const next = (this.missingDedupeCounters.get(counterKey) ?? 0) + 1;
+    this.missingDedupeCounters.set(counterKey, next);
+    return `no-dedupe:${next}`;
+  }
+
+  private emitRequestEvent(
+    sessionId: string,
+    agentId: string | undefined,
+    projectSlug: string,
+    model: string,
+    ts: string | undefined,
+    usage: UsageTotals,
+    costUSD: number,
+    dedupeKey: string | undefined,
+  ): void {
+    if (!this.onRequest) return;
+    const pricing = this.pricing.resolve(model);
+    this.onRequest({
+      sessionId,
+      agentId,
+      projectSlug,
+      model,
+      ts: ts ?? new Date().toISOString(),
+      usage,
+      costUSD,
+      rateInput: pricing?.input,
+      rateOutput: pricing?.output,
+      rateCacheRead: pricing?.cacheRead,
+      rateCacheWrite5m: pricing?.cacheWrite5m,
+      rateCacheWrite1h: pricing?.cacheWrite1h,
+      pricingSource: this.pricing.pricingSource(model),
+      dedupeKey: this.resolveDedupeKey(sessionId, agentId, dedupeKey),
+    });
   }
 
   async init(): Promise<void> {
@@ -359,6 +428,16 @@ export class TranscriptStore extends EventEmitter {
       agg.models.add(entry.model);
       this.bumpHour(entry.timestamp, entry.usage, cost);
       this.bumpModel(entry.model, entry.usage, cost);
+      this.emitRequestEvent(
+        entry.sessionId,
+        undefined,
+        projectSlug,
+        entry.model,
+        entry.timestamp,
+        entry.usage,
+        cost,
+        entry.dedupeKey,
+      );
       changed = true;
     }
     return changed;
@@ -471,6 +550,16 @@ export class TranscriptStore extends EventEmitter {
       agg.models.add(entry.model);
       this.bumpHour(entry.timestamp, entry.usage, cost);
       this.bumpModel(entry.model, entry.usage, cost);
+      this.emitRequestEvent(
+        sessionId,
+        agentId,
+        state.projectSlug,
+        entry.model,
+        entry.timestamp,
+        entry.usage,
+        cost,
+        entry.dedupeKey,
+      );
       changed = true;
     }
     return changed;

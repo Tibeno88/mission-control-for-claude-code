@@ -4,6 +4,7 @@ import type { Hono } from "hono";
 import type { Config } from "../config.js";
 import type { TranscriptStore } from "../transcripts.js";
 import { getBackupConfig, setBackupConfig } from "./db.js";
+import { queryMetricsPeriods, type MetricsBucket } from "./metrics-query.js";
 import type { BackupScheduler } from "./scheduler.js";
 import type { BackupService } from "./service.js";
 import type {
@@ -361,6 +362,23 @@ export function registerBackupRoutes(app: Hono, deps: BackupRouteDeps): void {
   app.get("/api/backup/runs", (c) => {
     const limit = clampLimit(c.req.query("limit"), 50, 200);
     return c.json({ runs: service.listRuns(limit) });
+  });
+
+  app.get("/api/metrics/periods", (c) => {
+    const bucketRaw = c.req.query("bucket");
+    if (bucketRaw !== "day" && bucketRaw !== "week" && bucketRaw !== "month") {
+      return c.json({ error: "bucket must be day, week or month" }, 400);
+    }
+    const bucket: MetricsBucket = bucketRaw;
+    return c.json(
+      queryMetricsPeriods(db, {
+        bucket,
+        from: c.req.query("from") || undefined,
+        to: c.req.query("to") || undefined,
+        model: c.req.query("model") || undefined,
+        project: c.req.query("project") || undefined,
+      }),
+    );
   });
 
   app.get("/api/backup/history", (c) => {

@@ -253,6 +253,45 @@ Sans Plannotator, tout fonctionne normalement : le compteur reste à zéro et
 `~/.plannotator`, déclarez-le via `CMC_PLANNOTATOR_DIR` (ou la variable
 `PLANNOTATOR_DATA_DIR` de Plannotator lui-même, reconnue en repli).
 
+### Schéma SQLite
+
+`$CMC_DATA_DIR/cmc.db` est la source ouvrable par un outil externe (DB Browser
+for SQLite, DuckDB, un script Python…) pour du recalcul ou des statistiques que
+l'UI ne couvre pas. Une ligne par table :
+
+| Table                 | Granularité / clé                                                                                          | Rôle                                                                                                                                                                                                                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `request_events`      | 1 ligne = 1 requête LLM. Unique `(session_id, agent_id, dedupe_key)`                                       | **Table de faits.** Tokens, cache, coût _et_ taux appliqués au moment de l'appel, par requête. Base de toutes les moyennes par période. **Non liée à `backup_runs`** : survit à une purge des runs/archives, par construction. `account_id` figé à l'écriture (un remappage projet→compte ultérieur ne réécrit pas l'historique). |
+| `request_rollups`     | 1 ligne = mois × modèle × projet (`project_slug` NULL = tous projets). Clé `(bucket, model, project_slug)` | Compaction d'une période purgée depuis `request_events` : `requests` est conservé comme dénominateur, donc les moyennes restent exactes après compaction. Vide tant que la purge est désactivée (réglage actuel : rétention infinie).                                                                                             |
+| `purge_watermark`     | 1 ligne fixe (`id = 1`)                                                                                    | Marque la date en-deçà de laquelle `request_events` peut être incomplet (compacté dans `request_rollups`). Absente = aucune purge n'a encore eu lieu, `request_events` est intégral.                                                                                                                                              |
+| `session_snapshots`   | 1 ligne par run de backup × session                                                                        | Photo cumulée d'une session à l'instant d'un run. Sert les vues par session/projet/compte de l'onglet ARCHIVE. `rate_*`/`pricing_source` renseignés uniquement quand la session n'a utilisé qu'un seul modèle (sinon `pricing_source = "mixed"`, taux à NULL — pas de taux moyen fabriqué).                                       |
+| `archives`            | 1 ligne par fichier `.jsonl` archivé, unique par `sha256`                                                  | Index des transcripts gzippés (`archives/`) : chemin d'origine, chemin d'archive, tailles, date. Dédoublonne par contenu.                                                                                                                                                                                                         |
+| `backup_runs`         | 1 ligne par run de backup (manuel ou planifié)                                                             | Journal d'exécution : volumétrie, durée, erreur éventuelle.                                                                                                                                                                                                                                                                       |
+| `accounts`            | 1 ligne par compte déclaré                                                                                 | Comptes Claude saisis manuellement (libellé, email, organisation, couleur).                                                                                                                                                                                                                                                       |
+| `project_account_map` | 1 ligne par projet mappé, clé `project_slug`                                                               | Rattachement projet → compte, saisi à la main dans l'onglet ARCHIVE.                                                                                                                                                                                                                                                              |
+| `backup_config`       | Clé/valeur                                                                                                 | Configuration du backup : activation, cron, rétention (jours, `0` = infinie), répertoire.                                                                                                                                                                                                                                         |
+
+**Requête prête à l'emploi** — coût moyen et tokens de sortie moyens par
+requête, par modèle, sur les 30 derniers jours (résultat identique à ce que
+sert `/api/metrics/periods`) :
+
+```sql
+SELECT
+  strftime('%Y-%m-%d', ts, 'localtime') AS jour,
+  model,
+  COUNT(*)                              AS requetes,
+  SUM(cost_usd) / COUNT(*)              AS cout_moyen_usd,
+  SUM(output_tokens) / COUNT(*)         AS tokens_out_moyen
+FROM request_events
+WHERE ts >= datetime('now', '-30 days')
+GROUP BY jour, model
+ORDER BY jour, model;
+```
+
+Pour une période purgée (antérieure à `purge_watermark.purged_before`), la même
+moyenne se recalcule au grain mois depuis `request_rollups` :
+`SUM(cost_usd) / SUM(requests)` et `SUM(output_tokens) / SUM(requests)`.
+
 ## Configuration
 
 Tout se configure par variables d'environnement, à passer au serveur.
@@ -310,19 +349,20 @@ invalide renvoie `400`.
 
 ### Sauvegarde & historique
 
-| Méthode  | Route                 | Rôle                                              |
-| -------- | --------------------- | ------------------------------------------------- |
-| `POST`   | `/api/backup/run`     | Déclenche un run manuel                           |
-| `GET`    | `/api/backup/runs`    | Liste des runs                                    |
-| `GET`    | `/api/backup/history` | Historique agrégé (`?period=today\|7d\|30d\|all`) |
-| `GET`    | `/api/backup/config`  | Configuration du scheduler                        |
-| `PUT`    | `/api/backup/config`  | Met à jour activation / cron / rétention          |
-| `GET`    | `/api/accounts`       | Liste des comptes                                 |
-| `POST`   | `/api/accounts`       | Crée un compte                                    |
-| `DELETE` | `/api/accounts/:id`   | Supprime un compte                                |
-| `GET`    | `/api/project-map`    | Mapping projet → compte                           |
-| `PUT`    | `/api/project-map`    | Met à jour le mapping                             |
-| `GET`    | `/api/archives`       | Métadonnées des archives                          |
+| Méthode  | Route                  | Rôle                                                                                                                                                                         |
+| -------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/api/backup/run`      | Déclenche un run manuel                                                                                                                                                      |
+| `GET`    | `/api/backup/runs`     | Liste des runs                                                                                                                                                               |
+| `GET`    | `/api/backup/history`  | Historique agrégé (`?period=today\|7d\|30d\|all`)                                                                                                                            |
+| `GET`    | `/api/metrics/periods` | Coût moyen et tokens de sortie moyens par requête, par modèle (`?bucket=day\|week\|month&from=&to=&model=&project=`) — coût **estimé**, voir [Schéma SQLite](#schéma-sqlite) |
+| `GET`    | `/api/backup/config`   | Configuration du scheduler                                                                                                                                                   |
+| `PUT`    | `/api/backup/config`   | Met à jour activation / cron / rétention                                                                                                                                     |
+| `GET`    | `/api/accounts`        | Liste des comptes                                                                                                                                                            |
+| `POST`   | `/api/accounts`        | Crée un compte                                                                                                                                                               |
+| `DELETE` | `/api/accounts/:id`    | Supprime un compte                                                                                                                                                           |
+| `GET`    | `/api/project-map`     | Mapping projet → compte                                                                                                                                                      |
+| `PUT`    | `/api/project-map`     | Met à jour le mapping                                                                                                                                                        |
+| `GET`    | `/api/archives`        | Métadonnées des archives                                                                                                                                                     |
 
 ### WebSocket
 

@@ -494,6 +494,37 @@
   font-size: 0.72rem;
 }
 
+.period-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+}
+
+.period-metrics-table th,
+.period-metrics-table td {
+  padding: 4px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.period-metrics-table th {
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  font-weight: 400;
+}
+
+.period-metrics-table td:not(:first-child),
+.period-metrics-table th:not(:first-child) {
+  text-align: right;
+}
+
+.history-note {
+  color: var(--text-faint);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
 /* ===== Account manager ===== */
 
 .account-list,

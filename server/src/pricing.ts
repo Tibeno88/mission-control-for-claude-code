@@ -99,7 +99,13 @@ export const DEFAULT_PRICING: Record<string, ModelPricing> = {
   },
 };
 
-const PROVIDER_PREFIXES = new Set(["bedrock", "anthropic", "vertex", "openrouter", "aws"]);
+const PROVIDER_PREFIXES = new Set([
+  "bedrock",
+  "anthropic",
+  "vertex",
+  "openrouter",
+  "aws",
+]);
 
 /**
  * Normalizes a model name to a sorted token key for fuzzy matching.
@@ -131,34 +137,55 @@ interface LiteLLMEntry {
 
 export class PricingTable {
   private readonly table: Map<string, ModelPricing>;
+  private readonly liteLLMKeys = new Set<string>();
+  private refreshedAt: string | undefined;
 
   constructor(seed: Record<string, ModelPricing> = DEFAULT_PRICING) {
     this.table = new Map(Object.entries(seed));
   }
 
-  resolve(model: string): ModelPricing | undefined {
-    const exact = this.table.get(model);
-    if (exact) return exact;
+  /** Resolves the matching table key for a model name, or undefined if none match. */
+  private resolveKey(model: string): string | undefined {
+    if (this.table.has(model)) return model;
 
     const withoutDate = model.replace(/-\d{8}$/, "");
-    const dateless = this.table.get(withoutDate);
-    if (dateless) return dateless;
+    if (this.table.has(withoutDate)) return withoutDate;
 
     let bestKey = "";
     for (const key of this.table.keys()) {
       if (model.startsWith(key) && key.length > bestKey.length) bestKey = key;
     }
-    if (bestKey) return this.table.get(bestKey);
+    if (bestKey) return bestKey;
 
     // 4th pass: token-set match — handles provider-prefixed custom names
     // e.g. "bedrock-claude-5-sonnet" ↔ "claude-sonnet-5"
     const needle = tokenKey(model);
     if (needle) {
-      for (const [key, pricing] of this.table) {
-        if (tokenKey(key) === needle) return pricing;
+      for (const key of this.table.keys()) {
+        if (tokenKey(key) === needle) return key;
       }
     }
     return undefined;
+  }
+
+  resolve(model: string): ModelPricing | undefined {
+    const key = this.resolveKey(model);
+    return key === undefined ? undefined : this.table.get(key);
+  }
+
+  /**
+   * Identifies where a model's currently-resolved pricing came from — persisted
+   * alongside a computed cost so a stored rate can be attributed later even if
+   * the table has since moved on. Undefined when the model has no pricing at
+   * all (mirrors resolve()).
+   */
+  pricingSource(model: string): string | undefined {
+    const key = this.resolveKey(model);
+    if (key === undefined) return undefined;
+    if (this.liteLLMKeys.has(key) && this.refreshedAt) {
+      return `litellm@${this.refreshedAt}`;
+    }
+    return "embedded";
   }
 
   costUSD(model: string, usage: UsageTotals): number {
@@ -209,8 +236,10 @@ export class PricingTable {
             entry.cache_creation_input_token_cost ??
             0,
         });
+        this.liteLLMKeys.add(canonicalKey);
         updated += 1;
       }
+      if (updated > 0) this.refreshedAt = new Date().toISOString();
       return updated;
     } catch {
       return 0;

@@ -65,7 +65,128 @@ const MIGRATIONS: readonly string[] = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   )`,
+  // Fact table: one row per billable LLM request. Deliberately NOT linked to
+  // backup_runs/run_id — applyRetention() cascades deletes from that chain, and
+  // this table must survive purges by construction (it's the long memory, the
+  // .gz archives are only the replayable source). account_id is frozen at write
+  // time so a later project_account_map edit never rewrites historical cost.
+  // agent_id defaults to '' (not NULL) for the main session — SQLite's UNIQUE
+  // constraint treats NULL as distinct from NULL, which would silently defeat
+  // dedup on every main-session row (the majority of them).
+  `CREATE TABLE IF NOT EXISTS request_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL DEFAULT '',
+    project_slug TEXT NOT NULL,
+    account_id INTEGER,
+    model TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_5m_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    rate_input REAL,
+    rate_output REAL,
+    rate_cache_read REAL,
+    rate_cache_write_5m REAL,
+    rate_cache_write_1h REAL,
+    pricing_source TEXT,
+    dedupe_key TEXT NOT NULL,
+    UNIQUE (session_id, agent_id, dedupe_key)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_request_events_ts ON request_events (ts)`,
+  `CREATE INDEX IF NOT EXISTS idx_request_events_model ON request_events (model)`,
+  // Compaction target for purged periods: month x model x project, requests
+  // preserved as the denominator so avg cost/tokens per request stay exact
+  // after compaction. NULL project_slug means "all projects" for that bucket.
+  // Upserted on (bucket, model, project_slug) so compaction runs are re-entrant.
+  `CREATE TABLE IF NOT EXISTS request_rollups (
+    bucket TEXT NOT NULL,
+    model TEXT NOT NULL,
+    project_slug TEXT,
+    requests INTEGER NOT NULL DEFAULT 0,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_5m_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    compacted_at INTEGER NOT NULL,
+    PRIMARY KEY (bucket, model, project_slug)
+  )`,
+  // Single-row marker: request_events is complete only for ts >= purged_before.
+  // Before that point, request_events may be incomplete (rows compacted away)
+  // and callers must fall back to request_rollups.
+  `CREATE TABLE IF NOT EXISTS purge_watermark (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    purged_before TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
 ];
+
+/** ALTERs applied after CREATE TABLE migrations — additive, safe to re-run. */
+const COLUMN_MIGRATIONS: ReadonlyArray<{
+  table: string;
+  column: string;
+  ddl: string;
+}> = [
+  {
+    table: "session_snapshots",
+    column: "cache_write_5m_tokens",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN cache_write_5m_tokens INTEGER NOT NULL DEFAULT 0",
+  },
+  {
+    table: "session_snapshots",
+    column: "cache_write_1h_tokens",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0",
+  },
+  {
+    table: "session_snapshots",
+    column: "rate_input",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN rate_input REAL",
+  },
+  {
+    table: "session_snapshots",
+    column: "rate_output",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN rate_output REAL",
+  },
+  {
+    table: "session_snapshots",
+    column: "rate_cache_read",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN rate_cache_read REAL",
+  },
+  {
+    table: "session_snapshots",
+    column: "rate_cache_write_5m",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN rate_cache_write_5m REAL",
+  },
+  {
+    table: "session_snapshots",
+    column: "rate_cache_write_1h",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN rate_cache_write_1h REAL",
+  },
+  {
+    table: "session_snapshots",
+    column: "pricing_source",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN pricing_source TEXT",
+  },
+];
+
+interface TableColumnRow {
+  name: string;
+}
+
+function runColumnMigrations(db: Database.Database): void {
+  for (const migration of COLUMN_MIGRATIONS) {
+    const columns = db
+      .prepare(`PRAGMA table_info(${migration.table})`)
+      .all() as TableColumnRow[];
+    const exists = columns.some((col) => col.name === migration.column);
+    if (!exists) db.exec(migration.ddl);
+  }
+}
 
 /** Default backup configuration used to seed `backup_config` on first run. */
 export function defaultBackupConfig(backupDir: string): BackupConfig {
@@ -80,6 +201,7 @@ export function defaultBackupConfig(backupDir: string): BackupConfig {
 function runMigrations(db: Database.Database): void {
   db.transaction(() => {
     for (const statement of MIGRATIONS) db.exec(statement);
+    runColumnMigrations(db);
   })();
 }
 
@@ -93,8 +215,28 @@ export function openDb(dbPath: string): Database.Database {
 
   const db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
+  // NORMAL is the standard pairing with WAL: still durable against app crashes,
+  // avoids an fsync on every single request_events insert at ingestion time.
+  db.pragma("synchronous = NORMAL");
   runMigrations(db);
   return db;
+}
+
+interface AccountMapRow {
+  account_id: number | null;
+}
+
+/** Looks up the manually-mapped account for a project, or null if unmapped. */
+export function resolveAccountId(
+  db: Database.Database,
+  projectSlug: string,
+): number | null {
+  const row = db
+    .prepare(
+      "SELECT account_id FROM project_account_map WHERE project_slug = ?",
+    )
+    .get(projectSlug) as AccountMapRow | undefined;
+  return row?.account_id ?? null;
 }
 
 interface ConfigRow {

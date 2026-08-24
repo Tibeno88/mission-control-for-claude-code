@@ -48,13 +48,16 @@ export function SessionCard({
   );
   const activity = session.lastActivity;
   const kindTag = session.kind === "bg" ? "BG" : session.pid ? "TUI" : "LOG";
+  // Le titre ne vient que du registre live : les sessions terminées n'en ont plus.
+  const title = session.name?.trim() ?? "";
+  const project = projectName(session);
 
   return (
     <article
       className={`card ${session.status} ${selected ? "selected" : ""}`}
       role="button"
       tabIndex={0}
-      aria-label={`Session ${projectName(session)}, ${STATUS_LABEL[session.status]}`}
+      aria-label={`Session ${project}${title ? ` — ${title}` : ""}, ${STATUS_LABEL[session.status]}`}
       onClick={() => onSelect(session.sessionId)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -91,7 +94,15 @@ export function SessionCard({
         )}
       </header>
 
-      <h3 className="card-project">{projectName(session)}</h3>
+      <h3 className="card-project">{project}</h3>
+      {title && (
+        <p
+          className={`card-title${session.nameSource === "derived" ? " derived" : ""}`}
+          title={title}
+        >
+          {title}
+        </p>
+      )}
       <div className="card-meta mono">
         {session.gitBranch && (
           <span className="branch">⎇ {session.gitBranch}</span>

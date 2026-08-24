@@ -57,6 +57,7 @@ function mergeFleet(
   return {
     sessionId: live?.sessionId ?? agg?.sessionId ?? "",
     name: live?.name,
+    nameSource: live?.nameSource,
     kind: live?.kind,
     agent: live?.agent,
     status,

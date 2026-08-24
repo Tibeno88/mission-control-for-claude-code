@@ -13,6 +13,8 @@ export interface LiveSession {
   cwd?: string;
   kind?: string;
   name?: string;
+  /** "derived" when Claude Code auto-generated `name`; absent when chosen. */
+  nameSource?: string;
   agent?: string;
   version?: string;
   startedAt?: number;
@@ -153,6 +155,8 @@ export class LiveRegistry extends EventEmitter {
       cwd: typeof record.cwd === "string" ? record.cwd : undefined,
       kind: typeof record.kind === "string" ? record.kind : undefined,
       name: typeof record.name === "string" ? record.name : undefined,
+      nameSource:
+        typeof record.nameSource === "string" ? record.nameSource : undefined,
       agent: typeof record.agent === "string" ? record.agent : undefined,
       version: typeof record.version === "string" ? record.version : undefined,
       startedAt:

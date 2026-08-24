@@ -477,6 +477,23 @@
   white-space: nowrap;
 }
 
+/* Titre de session : distingue deux sessions ouvertes dans le même dossier. */
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--cyan);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Titre auto-généré par Claude Code : atténué, il redit surtout le dossier. */
+.card-title.derived {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-style: italic;
+}
+
 .card-meta {
   display: flex;
   flex-wrap: wrap;

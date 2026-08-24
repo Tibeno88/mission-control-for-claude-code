@@ -47,7 +47,10 @@ export interface PlannotatorSessionInfo {
 
 export interface FleetSession {
   sessionId: string;
+  /** Session title from the live registry — absent once the session ended. */
   name?: string;
+  /** "derived" when Claude Code auto-generated `name`; absent when chosen. */
+  nameSource?: string;
   kind?: string;
   agent?: string;
   status: SessionStatus;

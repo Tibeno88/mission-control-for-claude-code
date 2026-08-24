@@ -74,6 +74,12 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
       <p className="detail-sid mono">{session.sessionId}</p>
 
       <dl className="detail-meta mono">
+        {session.name?.trim() && (
+          <div className="meta-row">
+            <dt>TITLE</dt>
+            <dd className="wrap">{session.name}</dd>
+          </div>
+        )}
         {session.pid !== undefined && (
           <div className="meta-row">
             <dt>PID</dt>

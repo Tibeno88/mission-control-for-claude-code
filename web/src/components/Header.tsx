@@ -13,7 +13,13 @@ function useClock(): Date {
   return now;
 }
 
-export type MainView = "live" | "archive";
+export type MainView = "live" | "dashboard" | "config";
+
+const VIEWS: Array<{ value: MainView; label: string }> = [
+  { value: "live", label: "LIVE" },
+  { value: "dashboard", label: "DASHBOARD" },
+  { value: "config", label: "CONFIG" },
+];
 
 interface HeaderProps {
   connected: boolean;
@@ -91,22 +97,17 @@ export function Header({
       </div>
       <div className="header-status">
         <nav className="view-tabs" aria-label="Navigation principale">
-          <button
-            type="button"
-            className={`view-tab ${view === "live" ? "active" : ""}`}
-            aria-pressed={view === "live"}
-            onClick={() => onViewChange("live")}
-          >
-            LIVE
-          </button>
-          <button
-            type="button"
-            className={`view-tab ${view === "archive" ? "active" : ""}`}
-            aria-pressed={view === "archive"}
-            onClick={() => onViewChange("archive")}
-          >
-            ARCHIVE
-          </button>
+          {VIEWS.map((entry) => (
+            <button
+              key={entry.value}
+              type="button"
+              className={`view-tab ${view === entry.value ? "active" : ""}`}
+              aria-pressed={view === entry.value}
+              onClick={() => onViewChange(entry.value)}
+            >
+              {entry.label}
+            </button>
+          ))}
         </nav>
         <div className="counts mono">
           <span className="count busy">{busy} RUN</span>

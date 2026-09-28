@@ -146,7 +146,7 @@ mode développement (défaut `http://localhost:5173`).
 
 ## Guide fonctionnel
 
-L'UI a deux onglets, **LIVE** et **ARCHIVE**, commutables depuis l'en-tête.
+L'UI a trois onglets, **LIVE**, **DASHBOARD** et **CONFIG**, commutables depuis l'en-tête.
 
 ### En-tête (commun)
 
@@ -161,17 +161,6 @@ L'UI a deux onglets, **LIVE** et **ARCHIVE**, commutables depuis l'en-tête.
   les notifications.
 
 ### Onglet LIVE
-
-**Bandeau de métriques** (`MetricsBar`) :
-
-| Tuile                    | Contenu                                          |
-| ------------------------ | ------------------------------------------------ |
-| `TOKENS TODAY`           | Tokens entrée/sortie du jour                     |
-| `CACHE TODAY`            | Tokens de lecture et d'écriture de cache du jour |
-| `COST TODAY`             | Coût estimé en USD du jour                       |
-| `COST 7 DAYS`            | Coût estimé sur 7 jours                          |
-| `COST / HOUR · LAST 24H` | Timeline horaire sur 24 h (sparkline)            |
-| `TOP PROJECTS · SCAN`    | Projets les plus coûteux sur la fenêtre de scan  |
 
 **Grille de flotte** (`FleetGrid` / `SessionCard`) — une carte par session :
 
@@ -202,12 +191,36 @@ demandée à la première transition, pas au chargement. Si elle a été refusé
 cloche est barrée : il faut débloquer les notifications dans les réglages du
 navigateur pour ce site.
 
-### Onglet ARCHIVE
+### Onglet DASHBOARD
+
+Deux sections. **Temps réel** (`MetricsBar`), calculée depuis les transcripts en cours de scan :
+
+| Panneau                          | Contenu                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `01 CORE · COÛT`                 | Jauge du coût du jour rapporté à la moyenne journalière sur 7 jours (écart en %), coût 7 j, sessions |
+| `02 FLUX TOKENS · AUJOURD'HUI`   | Tokens I/O du jour, répartition IN / OUT / CACHE READ / CACHE WRITE, taux de cache hit      |
+| `03 TÉLÉMÉTRIE · COÛT / HEURE`   | Barres horaires sur 24 h, pic et heure courante ; survol = détail coût et tokens de l'heure |
+| `04 MODÈLES · SCAN`              | Coût par modèle sur la fenêtre de scan, tokens de sortie, part du total                     |
+| `05 PROJETS · SCAN`              | Top 5 des projets par coût sur la fenêtre de scan, sessions, part du total                  |
+
+**Historique archivé** (`HistoryPanels`), calculé depuis les snapshots de
+sauvegarde : sélecteur de période (`AUJOURD'HUI`, `7 JOURS`, `30 JOURS`,
+`TOUT`) et filtre par compte, qui pilotent les panneaux 06 à 09.
+
+| Panneau               | Contenu                                                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| `06 TOTAUX · PÉRIODE` | Coût total, sessions, tokens I/O et répartition IN / OUT / CACHE, taux de cache hit             |
+| `07 COÛT / JOUR`      | Barres journalières (jours sans activité affichés à 0) ; survol = coût et tokens du jour        |
+| `08 PAR COMPTE`       | Coût par compte (pastille à la couleur du compte), sessions, part du total                      |
+| `09 PROJETS · PÉRIODE`| Top 6 des projets par coût, sessions, part du total                                             |
+| `10 COÛT / REQUÊTE`   | Requêtes, coût moyen et tokens de sortie moyens par modèle ; granularité propre JOUR / SEMAINE / MOIS (30 j / 12 sem. / 12 mois), indépendante du sélecteur de période |
+
+### Onglet CONFIG
+
+Paramétrage uniquement — aucune métrique de consommation (voir DASHBOARD).
 
 - **Run de sauvegarde** : bouton de déclenchement immédiat, avec suivi en direct
   (`running` / `done` / `error`) poussé par WebSocket.
-- **Historique** : totaux par période (`today`, `7d`, `30d`, `all`), ventilation
-  par compte et par projet, timeline journalière, liste des runs passés.
 - **Comptes** : création/suppression de comptes (libellé, email, organisation,
   couleur).
 - **Mapping projet → compte** : rattachement **manuel** de chaque `project_slug`
@@ -215,7 +228,7 @@ navigateur pour ce site.
   alimente la ventilation des coûts par compte.
 - **Configuration du scheduler** : activation, expression cron, rétention en
   jours. Persistée en base, appliquée sans redémarrage.
-- **Navigateur d'archives** par session : chemin, taille brute → gzip, sha256,
+- **Navigateur d'archives** par projet (tous les projets archivés) : chemin, taille brute → gzip, sha256,
   date d'archivage. Le téléchargement du `.jsonl.gz` depuis l'UI n'est pas encore
   disponible — voir [BACKLOG.md](./BACKLOG.md).
 
@@ -264,11 +277,11 @@ l'UI ne couvre pas. Une ligne par table :
 | `request_events`      | 1 ligne = 1 requête LLM. Unique `(session_id, agent_id, dedupe_key)`                                       | **Table de faits.** Tokens, cache, coût _et_ taux appliqués au moment de l'appel, par requête. Base de toutes les moyennes par période. **Non liée à `backup_runs`** : survit à une purge des runs/archives, par construction. `account_id` figé à l'écriture (un remappage projet→compte ultérieur ne réécrit pas l'historique). |
 | `request_rollups`     | 1 ligne = mois × modèle × projet (`project_slug` NULL = tous projets). Clé `(bucket, model, project_slug)` | Compaction d'une période purgée depuis `request_events` : `requests` est conservé comme dénominateur, donc les moyennes restent exactes après compaction. Vide tant que la purge est désactivée (réglage actuel : rétention infinie).                                                                                             |
 | `purge_watermark`     | 1 ligne fixe (`id = 1`)                                                                                    | Marque la date en-deçà de laquelle `request_events` peut être incomplet (compacté dans `request_rollups`). Absente = aucune purge n'a encore eu lieu, `request_events` est intégral.                                                                                                                                              |
-| `session_snapshots`   | 1 ligne par run de backup × session                                                                        | Photo cumulée d'une session à l'instant d'un run. Sert les vues par session/projet/compte de l'onglet ARCHIVE. `rate_*`/`pricing_source` renseignés uniquement quand la session n'a utilisé qu'un seul modèle (sinon `pricing_source = "mixed"`, taux à NULL — pas de taux moyen fabriqué).                                       |
+| `session_snapshots`   | 1 ligne par run de backup × session                                                                        | Photo cumulée d'une session à l'instant d'un run. Sert les vues par session/projet/compte de l'onglet CONFIG. `rate_*`/`pricing_source` renseignés uniquement quand la session n'a utilisé qu'un seul modèle (sinon `pricing_source = "mixed"`, taux à NULL — pas de taux moyen fabriqué).                                       |
 | `archives`            | 1 ligne par fichier `.jsonl` archivé, unique par `sha256`                                                  | Index des transcripts gzippés (`archives/`) : chemin d'origine, chemin d'archive, tailles, date. Dédoublonne par contenu.                                                                                                                                                                                                         |
 | `backup_runs`         | 1 ligne par run de backup (manuel ou planifié)                                                             | Journal d'exécution : volumétrie, durée, erreur éventuelle.                                                                                                                                                                                                                                                                       |
 | `accounts`            | 1 ligne par compte déclaré                                                                                 | Comptes Claude saisis manuellement (libellé, email, organisation, couleur).                                                                                                                                                                                                                                                       |
-| `project_account_map` | 1 ligne par projet mappé, clé `project_slug`                                                               | Rattachement projet → compte, saisi à la main dans l'onglet ARCHIVE.                                                                                                                                                                                                                                                              |
+| `project_account_map` | 1 ligne par projet mappé, clé `project_slug`                                                               | Rattachement projet → compte, saisi à la main dans l'onglet CONFIG.                                                                                                                                                                                                                                                              |
 | `backup_config`       | Clé/valeur                                                                                                 | Configuration du backup : activation, cron, rétention (jours, `0` = infinie), répertoire.                                                                                                                                                                                                                                         |
 
 **Requête prête à l'emploi** — coût moyen et tokens de sortie moyens par
@@ -324,7 +337,7 @@ interpréter la latence de l'UI :
 | Heartbeat WS          | 10 000 ms | Rafraîchit les compteurs relatifs côté client |
 
 **Réglages persistés en base** (table `backup_config`, modifiables depuis
-l'onglet ARCHIVE) : `enabled` (défaut `false`), `cron` (défaut `0 * * * *`, soit
+l'onglet CONFIG) : `enabled` (défaut `false`), `cron` (défaut `0 * * * *`, soit
 toutes les heures), `retentionDays` (défaut `0` = rétention infinie),
 `backupDir`.
 
@@ -378,7 +391,7 @@ puis à chaque changement (débounce 500 ms) et toutes les 10 s :
 
 ### Sauvegarde manuelle
 
-Depuis l'UI (bouton de l'onglet ARCHIVE) ou en ligne de commande, sans démarrer
+Depuis l'UI (bouton de l'onglet CONFIG) ou en ligne de commande, sans démarrer
 le serveur HTTP :
 
 ```bash
@@ -393,7 +406,7 @@ commande échoue** — utilisable dans un cron externe.
 
 ### Sauvegarde planifiée
 
-Scheduler interne basé sur `node-cron`, activable depuis l'onglet ARCHIVE
+Scheduler interne basé sur `node-cron`, activable depuis l'onglet CONFIG
 (expression cron + rétention). La configuration est persistée en base et
 rechargée au démarrage.
 
@@ -480,11 +493,12 @@ server/                       Node + TypeScript + Hono
 
 web/                          React 19 + Vite
   src/
-    App.tsx                   composition des vues LIVE / ARCHIVE
-    components/               Header, MetricsBar, FleetGrid, SessionCard,
-                              SessionDetail, Sparkline, PlannotatorPanel, backup/
+    App.tsx                   composition des vues LIVE / DASHBOARD / CONFIG
+    components/               Header, MetricsBar, HistoryPanels, HudPanel, CostBars,
+                              FleetGrid, SessionCard, SessionDetail,
+                              PlannotatorPanel, backup/ (vue CONFIG)
     lib/                      useSnapshot (WS), useBackup, useNotifications, format
-    styles/                   tokens, global, hud, backup
+    styles/                   tokens, global, hud, metrics, backup
 
 scripts/
   package.sh                  production du zip distribuable

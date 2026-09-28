@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArchiveView } from "./components/backup/ArchiveView";
 import { FleetGrid } from "./components/FleetGrid";
 import { Header } from "./components/Header";
+import { HistoryPanels } from "./components/HistoryPanels";
 import type { MainView } from "./components/Header";
 import { MetricsBar } from "./components/MetricsBar";
 import { SessionDetail } from "./components/SessionDetail";
@@ -41,24 +42,24 @@ export default function App() {
         onViewChange={setView}
       />
       <main className="layout">
-        {view === "live" ? (
-          snap ? (
-            <>
-              <MetricsBar metrics={snap.metrics} />
-              <FleetGrid
-                sessions={fleet}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onDismiss={dismissSession}
-              />
-            </>
-          ) : (
-            <div className="boot mono">
-              ESTABLISHING UPLINK<span className="blink">▌</span>
-            </div>
-          )
-        ) : (
+        {view === "config" ? (
           <ArchiveView />
+        ) : !snap ? (
+          <div className="boot mono">
+            ESTABLISHING UPLINK<span className="blink">▌</span>
+          </div>
+        ) : view === "dashboard" ? (
+          <>
+            <MetricsBar metrics={snap.metrics} />
+            <HistoryPanels />
+          </>
+        ) : (
+          <FleetGrid
+            sessions={fleet}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onDismiss={dismissSession}
+          />
         )}
       </main>
       {view === "live" && selected && (

@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/hud.css";
+import "./styles/metrics.css";
 import "./styles/backup.css";
 
 const root = document.getElementById("root");

@@ -33,8 +33,13 @@ export function shortId(id: string): string {
   return id.slice(0, 8);
 }
 
+const PROVIDER_PREFIX = /^(?:bedrock|us\.anthropic|anthropic|vertex)[_\-./]*/i;
+
 export function modelShort(model: string): string {
-  return model.replace(/^claude-/, "").replace(/-\d{8}$/, "");
+  return model
+    .replace(PROVIDER_PREFIX, "")
+    .replace(/^claude-/, "")
+    .replace(/-\d{8}$/, "");
 }
 
 export function projectName(

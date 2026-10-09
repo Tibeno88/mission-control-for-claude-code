@@ -117,6 +117,15 @@ export function SessionCard({
             title={`${session.subAgents.length} sous-agent(s) · ${fmtUSD(session.subAgentCostUSD)}`}
           >
             ⑃ {session.subAgents.length}
+            {(() => {
+              const parentModel = session.models[0] ?? "";
+              const subModels = [...new Set(
+                session.subAgents.flatMap((s) => s.models),
+              )].filter((m) => m !== parentModel);
+              return subModels.length > 0
+                ? ` · ${subModels.map(modelShort).join(", ")}`
+                : null;
+            })()}
           </span>
         )}
         {session.plannotator && session.plannotator.length > 0 && (

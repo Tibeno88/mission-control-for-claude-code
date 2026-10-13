@@ -15,6 +15,8 @@ export interface ParsedEntry {
   usage?: UsageTotals;
   dedupeKey?: string;
   activity?: ActivityEvent;
+  /** Claude's own end-of-turn recap sentence (system/away_summary). */
+  recap?: string;
 }
 
 const SNIPPET_MAX = 140;
@@ -175,6 +177,14 @@ export function parseLine(line: string): ParsedEntry | null {
     entry.activity = assistantActivity(record, ts);
   } else if (record.type === "user") {
     entry.activity = userActivity(record, ts);
+  } else if (
+    record.type === "system" &&
+    record.subtype === "away_summary" &&
+    typeof record.content === "string"
+  ) {
+    // Strip the trailing "(disable recaps in /config)" hint.
+    const text = record.content.replace(/\s*\(disable recaps[^)]*\)\s*$/, "");
+    if (text.trim()) entry.recap = text.trim();
   } else if (record.type === "summary" && typeof record.summary === "string") {
     entry.activity = {
       ts,

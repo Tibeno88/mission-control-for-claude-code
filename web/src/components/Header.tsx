@@ -114,7 +114,7 @@ export function Header({
           <span className={`count waiting ${waiting > 0 ? "alert" : ""}`}>
             {waiting} WAIT
           </span>
-          <span className="count idle">{idle} IDLE</span>
+          <span className="count idle">{idle} READY</span>
           <PlannotatorIndicator sessions={plannotator} />
         </div>
         <div className="clock mono">

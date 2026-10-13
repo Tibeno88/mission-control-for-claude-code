@@ -71,6 +71,7 @@ function mergeFleet(
     statusUpdatedAt: live?.statusUpdatedAt,
     lastEventTs: agg?.lastTs,
     lastActivity: agg?.lastActivity,
+    recap: agg?.recap,
     prompts: agg?.prompts ?? 0,
     usage: agg?.usage ?? emptyUsage(),
     costUSD: agg?.costUSD ?? 0,

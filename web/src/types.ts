@@ -45,6 +45,12 @@ export interface PlannotatorSessionInfo {
   claudeSessionId?: string;
 }
 
+/** Claude's end-of-turn recap sentence. */
+export interface SessionRecap {
+  ts: string;
+  text: string;
+}
+
 export interface FleetSession {
   sessionId: string;
   /** Session title from the live registry — absent once the session ended. */
@@ -64,6 +70,8 @@ export interface FleetSession {
   statusUpdatedAt?: number;
   lastEventTs?: string;
   lastActivity?: ActivityEvent;
+  /** Latest recap, dropped once a newer prompt starts. */
+  recap?: SessionRecap;
   prompts: number;
   usage: UsageTotals;
   costUSD: number;

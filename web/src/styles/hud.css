@@ -910,3 +910,77 @@
   font-size: 0.68rem;
   color: var(--text-faint);
 }
+
+/* Sessions en cours : bandeau cyan animé ; prêtes : accent vert + récap */
+.card.busy {
+  border-color: rgba(63, 217, 255, 0.5);
+  box-shadow: 0 0 18px rgba(63, 217, 255, 0.12);
+}
+
+.card.busy::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: busy-sweep 1.6s linear infinite;
+}
+
+@keyframes busy-sweep {
+  from { background-position: -50% 0; }
+  to { background-position: 150% 0; }
+}
+
+.busy-since {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+}
+
+.card.idle {
+  opacity: 1;
+  border-color: rgba(70, 220, 140, 0.4);
+}
+
+.card.idle .status-label {
+  color: #46dc8c;
+}
+
+.status-dot.idle {
+  background: #46dc8c;
+}
+
+.card-recap {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text);
+  border-left: 2px solid #46dc8c;
+  background: rgba(70, 220, 140, 0.07);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card.waiting .card-recap {
+  border-left-color: var(--amber);
+  background: rgba(255, 180, 84, 0.07);
+}
+
+.recap-tag {
+  margin-right: 6px;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: #46dc8c;
+}
+
+.card.waiting .recap-tag {
+  color: var(--amber);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.busy::before { animation: none; }
+}

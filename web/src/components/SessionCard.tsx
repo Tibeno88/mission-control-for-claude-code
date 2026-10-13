@@ -14,19 +14,21 @@ import { PlannotatorBadge } from "./PlannotatorPanel";
 const STATUS_LABEL: Record<SessionStatus, string> = {
   busy: "RUNNING",
   waiting: "AWAITING INPUT",
-  idle: "IDLE",
+  idle: "READY",
   ended: "ENDED",
   missing: "SOURCE DELETED",
 };
 
-function TimeAgo({ sinceMs }: { sinceMs: number }) {
+function TimeAgo({ sinceMs, bare }: { sinceMs: number; bare?: boolean }) {
   const [, tick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => tick((n) => n + 1), 10_000);
     return () => clearInterval(timer);
   }, []);
   if (!sinceMs) return null;
-  return <span className="time-ago">{timeAgo(sinceMs)}</span>;
+  return (
+    <span className={bare ? "busy-since" : "time-ago"}>{timeAgo(sinceMs)}</span>
+  );
 }
 
 interface SessionCardProps {
@@ -74,6 +76,9 @@ export function SessionCard({
       <header className="card-top mono">
         <span className={`status-dot ${session.status}`} aria-hidden="true" />
         <span className="status-label">{STATUS_LABEL[session.status]}</span>
+        {session.status === "busy" && session.statusUpdatedAt && (
+          <TimeAgo sinceMs={session.statusUpdatedAt} bare />
+        )}
         {session.status === "waiting" && session.waitingFor && (
           <span className="waiting-for">{session.waitingFor}</span>
         )}
@@ -133,7 +138,16 @@ export function SessionCard({
         )}
       </div>
 
-      {activity && (
+      {session.recap && session.status !== "busy" && (
+        <p className="card-recap" title={session.recap.text}>
+          <span className="recap-tag mono">
+            {session.status === "waiting" ? "RECAP" : "DONE"}
+          </span>
+          {session.recap.text}
+        </p>
+      )}
+
+      {activity && (session.status === "busy" || !session.recap) && (
         <div className="card-activity">
           <span className={`act-tag ${activity.kind}`}>{activity.label}</span>
           {activity.detail && (

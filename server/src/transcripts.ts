@@ -8,6 +8,7 @@ import {
   addUsage,
   emptyUsage,
   type ActivityEvent,
+  type SessionRecap,
   type UsageTotals,
 } from "./types.js";
 
@@ -60,6 +61,7 @@ export interface SessionAgg {
   usage: UsageTotals;
   costUSD: number;
   lastActivity?: ActivityEvent;
+  recap?: SessionRecap;
   /** Sub-agents (Task/Agent) spawned in this session, keyed by agentId. */
   subAgents: Map<string, SubAgentAgg>;
   /** Portion of `costUSD` contributed by sub-agents. */
@@ -411,8 +413,14 @@ export class TranscriptStore extends EventEmitter {
     }
     if (entry.activity && !entry.isSidechain) {
       agg.lastActivity = entry.activity;
-      if (entry.activity.kind === "user" && entry.activity.label === "PROMPT")
+      if (entry.activity.kind === "user" && entry.activity.label === "PROMPT") {
         agg.prompts += 1;
+        agg.recap = undefined; // new turn started: recap is stale
+      }
+      changed = true;
+    }
+    if (entry.recap && !entry.isSidechain) {
+      agg.recap = { ts: entry.timestamp ?? "", text: entry.recap };
       changed = true;
     }
     // '<synthetic>' is Claude Code's placeholder model for internal error messages — no billable usage.

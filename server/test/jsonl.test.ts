@@ -172,3 +172,16 @@ describe("snippet", () => {
     expect(snippet("x".repeat(300), 10).endsWith("…")).toBe(true);
   });
 });
+
+describe("away_summary recap", () => {
+  test("extrait le récap sans le suffixe /config", () => {
+    const line = JSON.stringify({
+      type: "system",
+      subtype: "away_summary",
+      content: "Fix appliqué. (disable recaps in /config)",
+      timestamp: "2026-09-09T15:43:55.418Z",
+      sessionId: "s1",
+    });
+    expect(parseLine(line)?.recap).toBe("Fix appliqué.");
+  });
+});

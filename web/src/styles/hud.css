@@ -669,6 +669,13 @@
 }
 
 /* Sub-agents (Task/Agent spawned within a session) */
+.headless-badge {
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 0 5px;
+  border-radius: 2px;
+}
+
 .subagent-badge {
   color: var(--amber);
   border: 1px solid var(--amber-soft);

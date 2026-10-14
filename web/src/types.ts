@@ -65,6 +65,7 @@ export interface FleetSession {
   cwd?: string;
   projectSlug?: string;
   gitBranch?: string;
+  headless?: boolean;
   models: string[];
   startedAt?: number;
   statusUpdatedAt?: number;

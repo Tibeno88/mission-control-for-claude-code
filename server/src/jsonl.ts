@@ -6,6 +6,8 @@ export interface ParsedEntry {
   sessionId?: string;
   cwd?: string;
   gitBranch?: string;
+  /** "cli" (interactive) or "sdk-cli" (`claude -p`, non-interactive). */
+  entrypoint?: string;
   isSidechain: boolean;
   /** Present on sub-agent transcript lines (~/.claude/…/{session}/subagents/). */
   agentId?: string;
@@ -161,6 +163,7 @@ export function parseLine(line: string): ParsedEntry | null {
     sessionId: str(record.sessionId),
     cwd: str(record.cwd),
     gitBranch: str(record.gitBranch),
+    entrypoint: str(record.entrypoint),
     isSidechain: record.isSidechain === true,
     agentId: str(record.agentId),
     attributionAgent: str(record.attributionAgent),

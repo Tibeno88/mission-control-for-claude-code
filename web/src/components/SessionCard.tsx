@@ -112,6 +112,14 @@ export function SessionCard({
         {session.gitBranch && (
           <span className="branch">⎇ {session.gitBranch}</span>
         )}
+        {session.headless && (
+          <span
+            className="headless-badge"
+            title="Session non interactive (claude -p) — reprise : claude -p --resume <id> «…»"
+          >
+            -P
+          </span>
+        )}
         <span className="sid">#{shortId(session.sessionId)}</span>
         {session.models[0] && (
           <span className="model">{modelShort(session.models[0])}</span>

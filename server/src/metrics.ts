@@ -66,6 +66,7 @@ function mergeFleet(
     cwd: live?.cwd ?? agg?.cwd,
     projectSlug: agg?.projectSlug,
     gitBranch: agg?.gitBranch,
+    headless: agg?.entrypoint === "sdk-cli",
     models: agg ? [...agg.models] : [],
     startedAt: (live?.startedAt ?? tsToMs(agg?.firstTs)) || undefined,
     statusUpdatedAt: live?.statusUpdatedAt,

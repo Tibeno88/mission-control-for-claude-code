@@ -89,6 +89,8 @@ export interface FleetSession {
   cwd?: string;
   projectSlug?: string;
   gitBranch?: string;
+  /** Started non-interactively (`claude -p`, entrypoint "sdk-cli"). */
+  headless?: boolean;
   models: string[];
   startedAt?: number;
   statusUpdatedAt?: number;

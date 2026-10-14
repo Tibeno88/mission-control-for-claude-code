@@ -54,6 +54,7 @@ export interface SessionAgg {
   transcriptPath: string;
   cwd?: string;
   gitBranch?: string;
+  entrypoint?: string;
   models: Set<string>;
   firstTs?: string;
   lastTs?: string;
@@ -403,6 +404,7 @@ export class TranscriptStore extends EventEmitter {
     if (entry.cwd) agg.cwd = entry.cwd;
     if (entry.gitBranch && entry.gitBranch !== "HEAD")
       agg.gitBranch = entry.gitBranch;
+    if (entry.entrypoint) agg.entrypoint = entry.entrypoint;
     if (entry.timestamp) {
       if (!agg.firstTs || entry.timestamp < agg.firstTs)
         agg.firstTs = entry.timestamp;

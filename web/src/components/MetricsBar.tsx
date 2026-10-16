@@ -135,10 +135,10 @@ export function MetricsBar({ metrics }: { metrics: GlobalMetrics }) {
           lastIsNow
         />
       </Panel>
-      <Panel code="04" label="MODÈLES · SCAN" className="m-models">
+      <Panel code="04" label="MODÈLES · 7 JOURS" className="m-models">
         <RankBars rows={models} total={sumCost(metrics.byModel)} />
       </Panel>
-      <Panel code="05" label="PROJETS · SCAN" className="m-projects">
+      <Panel code="05" label="PROJETS · 7 JOURS" className="m-projects">
         <RankBars rows={projects} total={sumCost(metrics.byProject)} />
       </Panel>
     </section>

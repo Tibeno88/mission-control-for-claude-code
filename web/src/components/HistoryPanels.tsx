@@ -294,7 +294,7 @@ export function HistoryPanels() {
               ariaLabel="Répartition des tokens sur la période"
             />
           </Panel>
-          <Panel code="07" label="COÛT / JOUR" className="h-days">
+          <Panel code="07" label="COÛT / JOUR · PÉRIODE" className="h-days">
             {history.timeline.length > 0 ? (
               <CostBars
                 points={fillDays(history.timeline).map(toDayBar)}
@@ -306,7 +306,7 @@ export function HistoryPanels() {
               <p className="history-empty mono">AUCUNE DONNÉE SUR LA PÉRIODE</p>
             )}
           </Panel>
-          <Panel code="08" label="PAR COMPTE" className="h-accounts">
+          <Panel code="08" label="PAR COMPTE · PÉRIODE" className="h-accounts">
             <RankBars rows={accounts} total={sumCost(history.byAccount)} />
           </Panel>
           <Panel code="09" label="PROJETS · PÉRIODE" className="h-projects">

@@ -1,36 +1,87 @@
+/*
+ * Neumorphism (Soft UI), variante sombre JARVIS.
+ * Un seul matériau : fond et surfaces ont la même teinte, seule la lumière
+ * (source unique, en haut à gauche) dessine les formes.
+ * Changer de thème = changer ces tokens. Contrastes calculés (WCAG) sur --bg.
+ */
 :root {
-  --bg: #030710;
-  --panel: rgba(9, 21, 34, 0.72);
-  --panel-solid: #071220;
-  --line: rgba(63, 217, 255, 0.16);
-  --line-strong: rgba(63, 217, 255, 0.4);
+  /* Matériau */
+  --bg: #1b2635;
+  --bg-hover: #202d40;
+  --light: #2a3a50; /* ombre claire, haut gauche */
+  --dark: #0f1621; /* ombre sombre, bas droite */
 
-  --cyan: #3fd9ff;
-  --cyan-dim: #1d7f9e;
-  --cyan-soft: rgba(63, 217, 255, 0.1);
+  /* Accent unique : état actif, CTA principal, focus */
+  --accent: #3fd9ff;
+  --on-accent: #06121c;
+
+  /* Signaux sémantiques (alerte / erreur / prêt), jamais décoratifs */
   --amber: #ffb454;
-  --amber-soft: rgba(255, 180, 84, 0.12);
-  --red: #ff4d5e;
+  --red: #ff7a88;
+  --ok: #46dc8c;
 
-  /* Token-composition palette: validated for CVD separation on --panel-solid. */
+  /* Texte : tous ≥ 4.5:1 sur --bg */
+  --text: #d8eef8;
+  --text-dim: #93b0c4;
+  --text-faint: #8aa6ba;
+
+  /* Composants d'interface (icône seule, trait de champ) : ≥ 3:1 sur --bg */
+  --edge: #6f8ea5;
+
+  /* Relief : blur = 2× l'offset */
+  --elev-1: 6px 6px 12px var(--dark), -6px -6px 12px var(--light);
+  --elev-btn: 4px 4px 8px var(--dark), -4px -4px 8px var(--light);
+  --elev-hover: 8px 8px 16px var(--dark), -8px -8px 16px var(--light);
+  --elev-2: 14px 14px 28px var(--dark), -14px -14px 28px var(--light);
+  --elev-in: inset 6px 6px 12px var(--dark), inset -6px -6px 12px var(--light);
+  --elev-in-sm: inset 3px 3px 6px var(--dark), inset -3px -3px 6px var(--light);
+
+  --radius: 20px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+  --focus-ring: 3px solid var(--accent);
+  --target: 44px;
+
+  /* Alias historiques : le reste du CSS les référence encore */
+  --panel: var(--bg);
+  --panel-solid: var(--bg);
+  --line: transparent;
+  --line-strong: var(--edge);
+  --cyan: var(--accent);
+  --cyan-dim: #5cb8d6;
+  --cyan-soft: transparent;
+  --amber-soft: transparent;
+
+  /* Palette de composition des tokens : séparation CVD validée, ≥ 3:1 sur --bg */
   --viz-in: #1298c4;
   --viz-out: #c77d22;
   --viz-cache-read: #8b6de6;
   --viz-cache-write: #259e6c;
 
-  --text: #cfe9f5;
-  --text-dim: #628299;
-  --text-faint: #3d5a6e;
-
   --font-display: 'Rajdhani', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
 
-  --space-1: 6px;
-  --space-2: 10px;
-  --space-3: 16px;
-  --space-4: 24px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
 
   --dur-fast: 150ms;
   --dur: 300ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Renforcer ombres et contrastes */
+@media (prefers-contrast: more) {
+  :root {
+    --light: #3a4f6b;
+    --dark: #070c13;
+    --text-dim: #b4cbdb;
+    --text-faint: #a9c1d2;
+    --edge: #9bb6c9;
+    --elev-1: 8px 8px 12px var(--dark), -8px -8px 12px var(--light);
+    --elev-btn: 6px 6px 8px var(--dark), -6px -6px 8px var(--light);
+    --elev-in: inset 8px 8px 12px var(--dark), inset -8px -8px 12px var(--light);
+    --elev-in-sm: inset 4px 4px 6px var(--dark), inset -4px -4px 6px var(--light);
+  }
 }

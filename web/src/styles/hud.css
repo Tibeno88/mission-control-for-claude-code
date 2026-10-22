@@ -71,7 +71,7 @@
 }
 
 .header-sub {
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   letter-spacing: 0.42em;
   color: var(--text-dim);
 }
@@ -86,7 +86,7 @@
 .counts {
   display: flex;
   gap: var(--space-2);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .count {
@@ -121,7 +121,7 @@
 
 .clock-date {
   display: block;
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
   letter-spacing: 0.3em;
 }
@@ -130,7 +130,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.14em;
 }
 
@@ -179,7 +179,7 @@
 /* Empty-list placeholder, shared by the CONFIG lists. */
 .tile-list-empty {
   color: var(--text-faint);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   letter-spacing: 0.2em;
 }
 
@@ -273,7 +273,7 @@
   background: none;
   border: 1px solid var(--line);
   color: var(--text-dim);
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   cursor: pointer;
   transition: all var(--dur-fast);
@@ -331,7 +331,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   letter-spacing: 0.16em;
 }
 
@@ -385,7 +385,7 @@
   padding: 1px 6px;
   border: 1px solid var(--line);
   color: var(--text-dim);
-  font-size: 0.6rem;
+  font-size: 0.8rem;
 }
 
 .card-project {
@@ -418,7 +418,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
 }
 
@@ -431,7 +431,7 @@
   align-items: baseline;
   gap: 8px;
   min-height: 1.4em;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   overflow: hidden;
 }
 
@@ -439,7 +439,7 @@
   flex-shrink: 0;
   padding: 1px 6px;
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   letter-spacing: 0.1em;
   border: 1px solid var(--line);
   color: var(--text-dim);
@@ -485,7 +485,7 @@
   gap: var(--space-3);
   padding-top: var(--space-2);
   border-top: 1px dashed var(--line);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
 }
 
@@ -577,7 +577,7 @@
 }
 
 .detail-sid {
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   color: var(--text-faint);
   word-break: break-all;
 }
@@ -589,7 +589,7 @@
   padding: var(--space-2) 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .meta-row {
@@ -620,7 +620,7 @@
 .usage-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
   letter-spacing: 0.1em;
 }
@@ -643,7 +643,7 @@
 }
 
 .detail-feed-title {
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   letter-spacing: 0.3em;
   color: var(--text-dim);
 }
@@ -660,7 +660,7 @@
   gap: 8px;
   padding: 5px 0 5px 10px;
   border-left: 2px solid var(--line);
-  font-size: 0.76rem;
+  font-size: 0.8rem;
 }
 
 .feed-item.user {
@@ -673,7 +673,7 @@
 
 .feed-ts {
   flex-shrink: 0;
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   color: var(--text-faint);
 }
 
@@ -681,7 +681,7 @@
   padding: var(--space-3) 0;
   color: var(--text-faint);
   letter-spacing: 0.2em;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 /* ===== Responsive ===== */
@@ -718,7 +718,7 @@
 
 .usage-row.subagent {
   color: var(--amber);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .usage-row.subagent .mono {
@@ -731,7 +731,7 @@
   color: var(--amber);
   border: 1px solid var(--amber-soft);
   background: var(--amber-soft);
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   vertical-align: middle;
 }
 
@@ -754,7 +754,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .subagent-type {
@@ -773,7 +773,7 @@
 }
 
 .subagent-usage {
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
   margin-top: 2px;
 }
@@ -784,7 +784,7 @@
 
 .subagent-task {
   margin-top: 4px;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.4;
   color: var(--text-dim);
   display: -webkit-box;
@@ -904,7 +904,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
 }
 
 .plan-mode {
@@ -926,7 +926,7 @@
 }
 
 .plan-url {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--amber);
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -938,7 +938,7 @@
 }
 
 .plan-orphan {
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   color: var(--text-faint);
   letter-spacing: 0.08em;
 }
@@ -946,7 +946,7 @@
 .plan-empty {
   margin: 0;
   padding: var(--space-2);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   color: var(--text-faint);
 }
 
@@ -974,7 +974,7 @@
 
 .busy-since {
   color: var(--text-dim);
-  font-size: 0.65rem;
+  font-size: 0.8rem;
 }
 
 .card.idle {
@@ -993,7 +993,7 @@
 .card-recap {
   margin: 0;
   padding: 6px 8px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.35;
   color: var(--text);
   border-left: 2px solid #46dc8c;
@@ -1011,7 +1011,7 @@
 
 .recap-tag {
   margin-right: 6px;
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   letter-spacing: 0.1em;
   color: #46dc8c;
 }

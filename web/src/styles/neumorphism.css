@@ -1,0 +1,640 @@
+/*
+ * Neumorphism (Soft UI) : couche de rendu, chargée en dernier.
+ * Lumière unique en haut à gauche ; relief = élément cliquable ou contenu,
+ * creux = champ, piste, zone encastrée. Le relief ne décore jamais.
+ * Préfixe `.app` : fait gagner ces règles sur les feuilles d'origine.
+ * L'état ne repose jamais sur l'ombre seule : couleur + soulignement + aria-*.
+ */
+
+/* ===== Décor retiré : un seul matériau ===== */
+
+.app .corner,
+.app .hud-panel::before,
+.app .card.busy::before,
+.app .core-orbit {
+  display: none;
+}
+
+.app .header-sub {
+  letter-spacing: 0.24em;
+}
+
+/* ===== Surfaces en relief (contenu) ===== */
+
+.app .card,
+.app .hud-panel,
+.app .backup-panel,
+.app .account-manager,
+.app .archive-browser,
+.app .subagent-item {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--elev-1);
+}
+
+.app .hud-panel,
+.app .backup-panel,
+.app .account-manager,
+.app .archive-browser {
+  padding: var(--space-3);
+}
+
+/* Pleine largeur : le plafond de 1440px laissait l'en-tête déborder du contenu */
+.app .layout {
+  width: 100%;
+  padding-bottom: calc(var(--space-4) * 2);
+}
+
+/* Bandeau : pastilles, onglets et PLAN partagent la même ligne médiane de 44px */
+.app .counts,
+.app .header-status {
+  align-items: center;
+}
+
+.app .count {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+}
+
+.app .header {
+  margin: var(--space-3) var(--space-3) 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--elev-1);
+}
+
+/* ===== Cartes de session : cliquables, donc relief qui réagit ===== */
+
+.app .card {
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.app .card:hover {
+  transform: none;
+  background: var(--bg-hover);
+  box-shadow: var(--elev-hover);
+}
+
+.app .card.selected,
+.app .card[aria-pressed="true"] {
+  background: var(--bg);
+  box-shadow: var(--elev-in);
+}
+
+.app .card.selected .card-project {
+  color: var(--accent);
+  text-decoration: underline 2px;
+  text-underline-offset: 6px;
+}
+
+.app .card.waiting,
+.app .card.busy,
+.app .card.idle,
+.app .card.missing {
+  border: 0;
+  background: var(--bg);
+}
+
+.app .card.busy:hover,
+.app .card.waiting:hover,
+.app .card.idle:hover {
+  background: var(--bg-hover);
+}
+
+/* Terminée / disparue : relief atténué, jamais d'opacité (contraste du texte) */
+.app .card.ended,
+.app .card.missing {
+  opacity: 1;
+  box-shadow: var(--elev-btn);
+}
+
+.app .waiting-for {
+  opacity: 1;
+}
+
+.app .card-stats,
+.app .core-stats,
+.app .flow-hit,
+.app .h-cost,
+.app .usage-row.total,
+.app .schedule-form,
+.app .archive-detail-panel,
+.app .dash-section-head,
+.app .task-col-title,
+.app .detail-meta {
+  border: 0;
+}
+
+.app .card-stats,
+.app .core-stats,
+.app .flow-hit {
+  padding-top: var(--space-2);
+}
+
+/* ===== Pastilles statiques : à plat, l'information est dans le texte ===== */
+
+.app .count,
+.app .kind,
+.app .act-tag,
+.app .backup-status,
+.app .headless-badge,
+.app .subagent-badge,
+.app .count-badge,
+.app .hud-panel-code {
+  border: 0;
+  background: none;
+}
+
+.app .hud-panel-code {
+  color: var(--text-dim);
+  padding: 0;
+}
+
+.app .hud-panel-head::after {
+  background: none;
+}
+
+/* Boutons de 44px : l'en-tête et son sélecteur passent à la ligne au lieu de déborder */
+.app .hud-panel-head {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+
+.app .hud-panel-action .period-select {
+  flex-wrap: wrap;
+}
+
+.app .count.waiting.alert {
+  color: var(--amber);
+  text-decoration: underline 2px;
+  text-underline-offset: 4px;
+}
+
+.app .backup-status.running::before {
+  content: "● ";
+}
+
+.app .backup-status.done::before {
+  content: "✓ ";
+}
+
+.app .backup-status.error::before {
+  content: "✕ ";
+}
+
+.app .notif-bell {
+  opacity: 1;
+  color: var(--text-dim);
+}
+
+.app .notif-bell.granted {
+  color: var(--accent);
+}
+
+.app .notif-bell.denied {
+  color: var(--amber);
+}
+
+/* ===== Repères latéraux d'état : indicateur de couleur, pas une bordure ===== */
+
+.app .feed-item,
+.app .plan-row,
+.app .card-recap {
+  border-left: 0;
+  padding-left: var(--space-2);
+  box-shadow: inset 3px 0 0 var(--edge);
+}
+
+.app .feed-item.user,
+.app .plan-row {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.app .feed-item.tool_use,
+.app .card.waiting .card-recap {
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.app .card-recap {
+  padding-block: 0; /* sinon la ligne suivante du line-clamp dépasse dans le padding */
+  background: none;
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+
+.app .project-map-row {
+  grid-template-columns: 1fr auto minmax(160px, 180px);
+}
+
+.app .card.waiting .card-recap {
+  background: none;
+}
+
+.app .plan-row {
+  background: none;
+}
+
+/* ===== Creux : champs, pistes, zones encastrées ===== */
+
+.app .detail-meta,
+.app .timeline-readout,
+.app .task-result,
+.app .archive-error {
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--elev-in-sm);
+}
+
+.app .archive-error::before {
+  content: "⚠ ";
+}
+
+.app .meter,
+.app .rank-track,
+.app .flow-bar {
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  box-shadow: var(--elev-in-sm);
+}
+
+.app .meter {
+  height: 12px;
+}
+
+.app .rank-track {
+  height: 10px;
+}
+
+.app .flow-bar {
+  height: 16px;
+  gap: 0;
+}
+
+.app .flow-seg {
+  border-radius: 0;
+}
+
+.app .meter-fill,
+.app .rank-fill {
+  box-shadow: none;
+  border-radius: var(--radius-pill);
+}
+
+.app .meter-fill {
+  background: var(--accent);
+}
+
+.app .core-track {
+  stroke: var(--dark);
+}
+
+.app .core-fill,
+.app .core-gauge.over .core-fill,
+.app .timeline-bar.now {
+  filter: none;
+}
+
+.app .core-value,
+.app .h-cost-value,
+.app .usage-row.total .mono {
+  text-shadow: none;
+}
+
+.app .timeline-grid {
+  stroke: var(--light);
+}
+
+.app .timeline-base {
+  stroke: var(--edge);
+}
+
+.app .timeline-hit:hover {
+  fill: var(--light);
+}
+
+.app .dash-section-mark {
+  box-shadow: none;
+}
+
+/* Colonnes Kanban : creux qui reçoit des tuiles en relief */
+
+.app .task-col {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--elev-in);
+}
+
+.app .task-col-title {
+  padding: var(--space-2) var(--space-3);
+}
+
+.app .task-col-body {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.app .task-tile {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--elev-btn);
+}
+
+.app .task-tile.in_progress,
+.app .task-tile.waiting {
+  border: 0;
+  background: var(--bg);
+  box-shadow: var(--elev-btn);
+}
+
+.app .task-tile.archived,
+.app .task-tile.done {
+  opacity: 1;
+}
+
+/* ===== Éléments flottants ===== */
+
+.app .detail {
+  z-index: 100; /* une carte focalisée (z 96, hud.css) ne doit pas passer devant */
+  border: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--bg);
+  box-shadow: var(--elev-2);
+}
+
+.app .detail.detail-expanded {
+  border-radius: var(--radius);
+}
+
+.app .plan-dropdown,
+.app .plan-popover {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--elev-2);
+  padding: var(--space-2);
+}
+
+.app .task-dialog {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--elev-2);
+}
+
+.app .task-dialog::backdrop {
+  background: rgb(8 13 20 / 0.75);
+}
+
+.app .task-form {
+  align-items: end;
+  border: 0;
+  background: none;
+  padding: var(--space-3);
+}
+
+.app .task-btn kbd {
+  border: 0;
+  border-radius: 6px;
+  box-shadow: var(--elev-in-sm);
+  opacity: 1;
+  padding: 0 8px;
+}
+
+/* ===== Boutons : relief au repos, creux quand actif ou pressé ===== */
+
+.app .view-tab,
+.app .period-btn,
+.app .preset-btn,
+.app .task-btn,
+.app .form-submit,
+.app .backup-run-btn,
+.app .detail-close,
+.app .detail-expand,
+.app .account-delete,
+.app .card-dismiss,
+.app .plan-badge,
+.app .plan-count {
+  min-width: var(--target);
+  min-height: var(--target);
+  padding: 8px 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--elev-btn);
+  cursor: pointer;
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+/* Boutons en ligne dans une carte : la zone tactile déborde sans agrandir la ligne */
+.app .plan-badge,
+.app .card-dismiss {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 12px;
+}
+
+.app .plan-badge::after,
+.app .card-dismiss::after {
+  content: "";
+  position: absolute;
+  inset: -12px -6px;
+}
+
+.app .detail-close,
+.app .detail-expand,
+.app .account-delete {
+  padding: 8px;
+  color: var(--text);
+}
+
+.app :is(.view-tab, .period-btn, .preset-btn, .task-btn, .form-submit, .backup-run-btn, .detail-close, .detail-expand, .account-delete, .card-dismiss, .plan-badge, .plan-count):hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+  box-shadow: var(--elev-hover);
+}
+
+.app :is(.detail-close, .account-delete, .card-dismiss):hover:not(:disabled) {
+  color: var(--red);
+}
+
+.app :is(.view-tab, .period-btn, .preset-btn, .task-btn, .form-submit, .backup-run-btn, .detail-close, .detail-expand, .account-delete, .card-dismiss, .plan-badge, .plan-count):active:not(:disabled) {
+  background: var(--bg);
+  box-shadow: var(--elev-in-sm);
+  transform: none;
+}
+
+/* Actif / sélectionné / ON : creux + accent + soulignement (jamais l'ombre seule) */
+.app :is(.view-tab, .period-btn, .preset-btn, .detail-expand, .plan-badge, .plan-count).active,
+.app :is(.view-tab, .period-btn, .preset-btn, .detail-expand)[aria-pressed="true"],
+.app :is(.period-btn, .view-tab)[aria-selected="true"],
+.app .plan-badge.open,
+.app .plan-count.alert {
+  background: var(--bg);
+  color: var(--accent);
+  box-shadow: var(--elev-in-sm);
+  text-decoration: underline 2px;
+  text-underline-offset: 6px;
+  animation: none;
+}
+
+.app .task-btn:disabled,
+.app .form-submit:disabled,
+.app .backup-run-btn:disabled,
+.app .plan-count:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* CTA principal : seul élément rempli d'accent */
+.app .task-btn.primary,
+.app .backup-run-btn {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.app .task-btn.primary:hover:not(:disabled),
+.app .backup-run-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+  filter: brightness(1.08);
+}
+
+.app .task-btn.primary:active:not(:disabled),
+.app .backup-run-btn:active:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(0.92);
+}
+
+.app .backup-run-btn.running {
+  background: var(--bg);
+  color: var(--amber);
+  box-shadow: var(--elev-in-sm);
+}
+
+.app .backup-run-btn:disabled {
+  cursor: progress;
+  opacity: 1;
+}
+
+.app .form-submit {
+  color: var(--accent);
+}
+
+/* ===== Champs de saisie : creux + trait d'appui (≥ 3:1) + libellé ===== */
+
+.app :is(.task-form, .task-reply, .form-field, .account-form, .account-filter, .project-map-row) :is(input:not([type="checkbox"], [type="color"]), select, textarea) {
+  min-height: var(--target);
+  padding: 10px 16px 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(var(--edge), var(--edge)) center bottom 6px / calc(100% - 32px) 2px no-repeat,
+    var(--bg);
+  color: var(--text);
+  box-shadow: var(--elev-in-sm);
+  font-size: 0.9rem;
+}
+
+.app :is(input, select, textarea)::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+.app .account-color-input {
+  width: var(--target);
+  height: var(--target);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--elev-in-sm);
+}
+
+.app .form-toggle,
+.app .retention-infinite {
+  min-height: var(--target);
+}
+
+.app :is(.form-toggle, .retention-infinite) input {
+  width: 22px;
+  height: 22px;
+}
+
+/* ===== Lignes d'archives ===== */
+
+.app .archive-browser-row {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--elev-btn);
+}
+
+.app .archive-browser-row:has([aria-expanded="true"]) {
+  box-shadow: var(--elev-in-sm);
+}
+
+.app .archive-browser-toggle {
+  min-height: var(--target);
+  padding: 8px 16px;
+  color: var(--text);
+}
+
+.app .archive-browser-toggle:hover,
+.app .archive-browser-toggle:focus-visible {
+  color: var(--accent);
+}
+
+.app .period-metrics-table th,
+.app .period-metrics-table td {
+  padding: 8px;
+  border: 0;
+}
+
+/* ===== Focus clavier : anneau net, l'ombre seule ne suffit jamais ===== */
+
+.app :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible,
+.app .card:focus-visible,
+.app .task-result:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* ===== Contrastes forcés : les bordures réapparaissent ===== */
+
+@media (forced-colors: active) {
+  .app :is(.card, .hud-panel, .header, .detail, .task-dialog, .task-col, .task-tile, .backup-panel, .account-manager, .archive-browser, .archive-browser-row, .subagent-item, .plan-dropdown, .plan-popover, .detail-meta, .timeline-readout, .task-result, .archive-error, .meter, .rank-track, .flow-bar),
+  .app :is(.view-tab, .period-btn, .preset-btn, .task-btn, .form-submit, .backup-run-btn, .detail-close, .detail-expand, .account-delete, .card-dismiss, .plan-badge, .plan-count),
+  .app :is(input, select, textarea) {
+    border: 1px solid ButtonText;
+    box-shadow: none;
+  }
+
+  .app :is(.view-tab, .period-btn, .preset-btn, .detail-expand, .plan-badge, .plan-count).active,
+  .app :is(.view-tab, .period-btn, .preset-btn, .detail-expand)[aria-pressed="true"],
+  .app :is(.period-btn, .view-tab)[aria-selected="true"],
+  .app .card.selected {
+    border: 3px solid Highlight;
+  }
+
+  .app :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid Highlight;
+  }
+
+  .app :is(.meter-fill, .rank-fill, .seg-in, .seg-out, .seg-cr, .seg-cw) {
+    forced-color-adjust: none;
+  }
+}

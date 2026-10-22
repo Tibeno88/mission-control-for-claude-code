@@ -58,6 +58,7 @@ export function SessionCard({
     <article
       className={`card ${session.status} ${selected ? "selected" : ""}`}
       role="button"
+      aria-pressed={selected}
       tabIndex={0}
       aria-label={`Session ${project}${title ? ` — ${title}` : ""}, ${STATUS_LABEL[session.status]}`}
       onClick={() => onSelect(session.sessionId)}
@@ -132,9 +133,9 @@ export function SessionCard({
             ⑃ {session.subAgents.length}
             {(() => {
               const parentModel = session.models[0] ?? "";
-              const subModels = [...new Set(
-                session.subAgents.flatMap((s) => s.models),
-              )].filter((m) => m !== parentModel);
+              const subModels = [
+                ...new Set(session.subAgents.flatMap((s) => s.models)),
+              ].filter((m) => m !== parentModel);
               return subModels.length > 0
                 ? ` · ${subModels.map(modelShort).join(", ")}`
                 : null;

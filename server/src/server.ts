@@ -146,7 +146,8 @@ async function main(): Promise<void> {
     const limit = Number.isNaN(limitRaw)
       ? 80
       : Math.min(Math.max(limitRaw, 1), 300);
-    return c.json({ events: await store.recentActivity(id, limit) });
+    const full = c.req.query("full") === "1";
+    return c.json({ events: await store.recentActivity(id, limit, { full }) });
   });
   app.post("/api/sessions/:id/dismiss", (c) => {
     const id = c.req.param("id");

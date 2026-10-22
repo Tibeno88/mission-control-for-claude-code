@@ -163,7 +163,30 @@ describe("parseLine", () => {
     );
     expect(entry?.activity).toMatchObject({ kind: "tool_result" });
   });
+
+  test("tronque le prompt à 140 caractères par défaut", () => {
+    const prompt = "a".repeat(500);
+    const detail = parseLine(userPromptLine(prompt))?.activity?.detail;
+    expect(detail?.length).toBeLessThanOrEqual(140);
+    expect(detail?.endsWith("…")).toBe(true);
+  });
+
+  test("garde le prompt intégral en mode full", () => {
+    const prompt = "a".repeat(500);
+    const detail = parseLine(userPromptLine(prompt), { full: true })?.activity
+      ?.detail;
+    expect(detail).toBe(prompt);
+  });
 });
+
+function userPromptLine(text: string): string {
+  return JSON.stringify({
+    type: "user",
+    sessionId: "s1",
+    timestamp: "2026-07-13T09:44:29.797Z",
+    message: { role: "user", content: text },
+  });
+}
 
 describe("snippet", () => {
   test("collapses whitespace and truncates", () => {

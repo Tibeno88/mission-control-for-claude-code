@@ -111,6 +111,39 @@ describe("TranscriptStore", () => {
     expect(events[0]).toMatchObject({ kind: "user", label: "PROMPT" });
   });
 
+  test("tronque les détails par défaut et les garde intégraux en mode full", async () => {
+    const prompt = "b".repeat(500);
+    await fsp.writeFile(
+      transcript,
+      line("user", { message: { role: "user", content: prompt } }),
+    );
+    await store.init();
+    const short = await store.recentActivity(SESSION_ID);
+    const full = await store.recentActivity(SESSION_ID, 80, { full: true });
+    expect(short[0]?.detail?.length).toBeLessThanOrEqual(140);
+    expect(full[0]?.detail).toBe(prompt);
+  });
+
+  test("mode full lit tout le transcript au-delà de la fenêtre de fin et ignore limit", async () => {
+    const prompt = "c".repeat(500);
+    const noise = line("system", {
+      subtype: "noise",
+      content: "z".repeat(300),
+    });
+    await fsp.writeFile(
+      transcript,
+      line("user", { message: { role: "user", content: prompt } }) +
+        noise.repeat(1000) +
+        assistantUsageLine("msg_G", 3),
+    );
+    await store.init();
+    const tail = await store.recentActivity(SESSION_ID, 80);
+    const full = await store.recentActivity(SESSION_ID, 1, { full: true });
+    expect(tail.some((e) => e.label === "PROMPT")).toBe(false);
+    expect(full.find((e) => e.label === "PROMPT")?.detail).toBe(prompt);
+    expect(full.length).toBeGreaterThan(1);
+  });
+
   test("feeds hourly buckets used by period metrics", async () => {
     await fsp.writeFile(transcript, assistantUsageLine("msg_F", 1000));
     await store.init();

@@ -464,11 +464,19 @@
   color: var(--text-faint);
 }
 
-.act-detail,
-.feed-detail {
+.act-detail {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-dim);
+}
+
+/* Full text in the detail feed: keep line breaks, wrap long tokens (no ellipsis). */
+.feed-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   color: var(--text-dim);
 }
 
@@ -510,11 +518,27 @@
   animation: slide-in var(--dur) var(--ease-out);
 }
 
+/* Vue élargie : panneau centré, quasi plein écran, pour lire les messages entiers. */
+.detail.detail-expanded {
+  top: var(--space-3);
+  bottom: var(--space-3);
+  left: 0;
+  right: 0;
+  width: min(1100px, calc(100vw - 2 * var(--space-3)));
+  margin-inline: auto;
+  border: 1px solid var(--line-strong);
+}
+
 .detail-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+.detail-actions {
+  display: flex;
+  gap: var(--space-1);
 }
 
 .detail-title {
@@ -529,7 +553,8 @@
   letter-spacing: 0.05em;
 }
 
-.detail-close {
+.detail-close,
+.detail-expand {
   padding: 6px 10px;
   background: none;
   border: 1px solid var(--line);
@@ -542,6 +567,13 @@
 .detail-close:focus-visible {
   border-color: var(--red);
   color: var(--red);
+}
+
+.detail-expand:hover,
+.detail-expand:focus-visible,
+.detail-expand[aria-pressed="true"] {
+  border-color: var(--cyan);
+  color: var(--cyan);
 }
 
 .detail-sid {

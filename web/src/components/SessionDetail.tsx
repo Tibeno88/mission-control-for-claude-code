@@ -18,13 +18,14 @@ interface SessionDetailProps {
 
 export function SessionDetail({ session, onClose }: SessionDetailProps) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let disposed = false;
     const load = async (): Promise<void> => {
       try {
         const response = await fetch(
-          `/api/sessions/${session.sessionId}/activity?limit=120`,
+          `/api/sessions/${session.sessionId}/activity?full=1`,
         );
         if (!response.ok) return;
         const data = (await response.json()) as { events: ActivityEvent[] };
@@ -53,7 +54,7 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
 
   return (
     <aside
-      className="detail"
+      className={expanded ? "detail detail-expanded" : "detail"}
       role="dialog"
       aria-label={`Détail de la session ${projectName(session)}`}
     >
@@ -62,14 +63,26 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
           <span className={`status-dot ${session.status}`} aria-hidden="true" />
           <h2>{projectName(session)}</h2>
         </div>
-        <button
-          type="button"
-          className="detail-close mono"
-          onClick={onClose}
-          aria-label="Fermer le panneau"
-        >
-          ✕
-        </button>
+        <div className="detail-actions">
+          <button
+            type="button"
+            className="detail-expand mono"
+            aria-pressed={expanded}
+            aria-label="Vue élargie"
+            title="Vue élargie"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? "⤡" : "⤢"}
+          </button>
+          <button
+            type="button"
+            className="detail-close mono"
+            onClick={onClose}
+            aria-label="Fermer le panneau"
+          >
+            ✕
+          </button>
+        </div>
       </header>
       <p className="detail-sid mono">{session.sessionId}</p>
 

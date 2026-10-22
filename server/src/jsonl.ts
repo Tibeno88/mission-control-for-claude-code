@@ -23,6 +23,11 @@ export interface ParsedEntry {
 
 const SNIPPET_MAX = 140;
 
+/** `full` keeps activity details untruncated (detail panel); default stays short for fleet cards. */
+export interface ParseOptions {
+  full?: boolean;
+}
+
 function num(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
@@ -34,6 +39,11 @@ function str(value: unknown): string | undefined {
 export function snippet(text: string, max = SNIPPET_MAX): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
   return collapsed.length > max ? `${collapsed.slice(0, max - 1)}…` : collapsed;
+}
+
+/** Full mode keeps the whole text, newlines included (rendered with pre-wrap). */
+function detailText(text: string, full: boolean, max?: number): string {
+  return full ? text.trim() : snippet(text, max);
 }
 
 const TOOL_INPUT_KEYS = [
@@ -48,12 +58,13 @@ const TOOL_INPUT_KEYS = [
   "skill",
 ] as const;
 
-function summarizeToolInput(input: unknown): string | undefined {
+function summarizeToolInput(input: unknown, full: boolean): string | undefined {
   if (!input || typeof input !== "object") return undefined;
   const record = input as Record<string, unknown>;
   for (const key of TOOL_INPUT_KEYS) {
     const value = record[key];
-    if (typeof value === "string" && value.trim()) return snippet(value, 100);
+    if (typeof value === "string" && value.trim())
+      return detailText(value, full, 100);
   }
   return undefined;
 }
@@ -79,6 +90,7 @@ function parseUsage(rawUsage: unknown): UsageTotals | undefined {
 function assistantActivity(
   raw: Record<string, unknown>,
   ts: string,
+  full: boolean,
 ): ActivityEvent | undefined {
   const message = raw.message as Record<string, unknown> | undefined;
   const content = message?.content;
@@ -91,7 +103,7 @@ function assistantActivity(
         ts,
         kind: "tool_use",
         label: typed.name,
-        detail: summarizeToolInput(typed.input),
+        detail: summarizeToolInput(typed.input, full),
       };
     }
     if (
@@ -103,7 +115,7 @@ function assistantActivity(
         ts,
         kind: "assistant",
         label: "RESPONSE",
-        detail: snippet(typed.text),
+        detail: detailText(typed.text, full),
       };
     }
   }
@@ -113,6 +125,7 @@ function assistantActivity(
 function userActivity(
   raw: Record<string, unknown>,
   ts: string,
+  full: boolean,
 ): ActivityEvent | undefined {
   if (raw.isMeta === true) return undefined;
   const message = raw.message as Record<string, unknown> | undefined;
@@ -142,10 +155,14 @@ function userActivity(
   }
   // Angle-bracket-only content is harness metadata (reminders, attachments), not a prompt.
   if (text.trimStart().startsWith("<")) return undefined;
-  return { ts, kind: "user", label: "PROMPT", detail: snippet(text) };
+  return { ts, kind: "user", label: "PROMPT", detail: detailText(text, full) };
 }
 
-export function parseLine(line: string): ParsedEntry | null {
+export function parseLine(
+  line: string,
+  options: ParseOptions = {},
+): ParsedEntry | null {
+  const full = options.full === true;
   let raw: unknown;
   try {
     raw = JSON.parse(line);
@@ -177,9 +194,9 @@ export function parseLine(line: string): ParsedEntry | null {
       entry.dedupeKey =
         str(message?.id) ?? str(record.requestId) ?? str(record.uuid);
     }
-    entry.activity = assistantActivity(record, ts);
+    entry.activity = assistantActivity(record, ts, full);
   } else if (record.type === "user") {
-    entry.activity = userActivity(record, ts);
+    entry.activity = userActivity(record, ts, full);
   } else if (
     record.type === "system" &&
     record.subtype === "away_summary" &&
@@ -193,7 +210,7 @@ export function parseLine(line: string): ParsedEntry | null {
       ts,
       kind: "system",
       label: "SUMMARY",
-      detail: snippet(record.summary),
+      detail: detailText(record.summary, full),
     };
   }
 

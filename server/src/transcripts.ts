@@ -307,11 +307,16 @@ export class TranscriptStore extends EventEmitter {
     return this.modelBuckets;
   }
 
-  /** Re-parses the tail of a session transcript to build its recent activity feed. */
+  /**
+   * Re-parses a session transcript to build its recent activity feed.
+   * `full` reads the whole file, keeps untruncated details and ignores `limit`.
+   */
   async recentActivity(
     sessionId: string,
     limit = 80,
+    options: { full?: boolean } = {},
   ): Promise<ActivityEvent[]> {
+    const full = options.full === true;
     const agg = this.sessionAggs.get(sessionId);
     if (!agg) return [];
     let handle: fsp.FileHandle;
@@ -322,7 +327,8 @@ export class TranscriptStore extends EventEmitter {
     }
     try {
       const { size } = await handle.stat();
-      const start = Math.max(0, size - ACTIVITY_TAIL_BYTES);
+      // ponytail: full mode re-reads the whole transcript on each poll; cache by mtime if that gets slow.
+      const start = full ? 0 : Math.max(0, size - ACTIVITY_TAIL_BYTES);
       const buffer = Buffer.alloc(size - start);
       await handle.read(buffer, 0, buffer.length, start);
       const lines = buffer.toString("utf8").split("\n");
@@ -331,10 +337,10 @@ export class TranscriptStore extends EventEmitter {
       const events: ActivityEvent[] = [];
       for (const line of lines) {
         if (!line.trim()) continue;
-        const entry = parseLine(line);
+        const entry = parseLine(line, { full });
         if (entry?.activity && !entry.isSidechain) events.push(entry.activity);
       }
-      return events.slice(-limit);
+      return full ? events : events.slice(-limit);
     } finally {
       await handle.close();
     }

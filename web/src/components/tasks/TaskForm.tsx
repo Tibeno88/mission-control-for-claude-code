@@ -7,14 +7,18 @@ const MODES = [
   { value: "plan", label: "plan (lecture seule)" },
 ];
 
-export function TaskForm() {
+interface TaskFormProps {
+  onCreated: () => void;
+  onCancel: () => void;
+}
+
+export function TaskForm({ onCreated, onCancel }: TaskFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const data = new FormData(event.currentTarget);
     const model = String(data.get("model") ?? "").trim();
     setBusy(true);
     const err = await taskRequest("POST", "", {
@@ -26,14 +30,14 @@ export function TaskForm() {
     });
     setBusy(false);
     setError(err);
-    if (!err) form.reset();
+    if (!err) onCreated();
   };
 
   return (
     <form className="task-form" onSubmit={(e) => void submit(e)}>
       <label>
         <span className="mono">TITRE</span>
-        <input name="title" required maxLength={200} />
+        <input name="title" required maxLength={200} autoFocus />
       </label>
       <label>
         <span className="mono">RÉPERTOIRE (chemin absolu)</span>
@@ -60,6 +64,9 @@ export function TaskForm() {
       <div className="task-form-actions">
         <button type="submit" className="task-btn primary" disabled={busy}>
           CRÉER (TODO)
+        </button>
+        <button type="button" className="task-btn" onClick={onCancel}>
+          ANNULER
         </button>
         {error && (
           <span className="task-error mono" role="alert">

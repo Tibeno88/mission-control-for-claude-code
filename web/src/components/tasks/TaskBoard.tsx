@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Task, TaskStatus } from "../../types";
 import { TaskForm } from "./TaskForm";
 import { TaskTile } from "./TaskTile";
@@ -22,6 +22,27 @@ export function TaskBoard({
   onOpenSession,
 }: TaskBoardProps) {
   const [showArchived, setShowArchived] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // Native <dialog>: focus trap and Escape come for free.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (creating && dialog && !dialog.open) dialog.showModal();
+  }, [creating]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== "c" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable], dialog"))
+        return;
+      e.preventDefault();
+      setCreating(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const archivedCount = tasks.filter((t) => t.status === "archived").length;
   const waiting = tasks.filter((t) => t.status === "waiting").length;
   const columns = showArchived
@@ -30,8 +51,28 @@ export function TaskBoard({
 
   return (
     <div className="task-board">
-      <TaskForm />
+      <dialog
+        ref={dialogRef}
+        className="task-dialog"
+        aria-label="Nouvelle tâche"
+        onClose={() => setCreating(false)}
+      >
+        {creating && (
+          <TaskForm
+            onCreated={() => dialogRef.current?.close()}
+            onCancel={() => dialogRef.current?.close()}
+          />
+        )}
+      </dialog>
       <div className="task-toolbar mono">
+        <button
+          type="button"
+          className="task-btn primary"
+          aria-keyshortcuts="c"
+          onClick={() => setCreating(true)}
+        >
+          + NOUVELLE TÂCHE <kbd>C</kbd>
+        </button>
         <span aria-live="polite">
           {waiting > 0
             ? `${waiting} EN ATTENTE DE VOTRE RÉPONSE`

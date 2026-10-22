@@ -276,3 +276,32 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.task-toolbar {
+  gap: var(--space-3);
+}
+
+.task-dialog {
+  width: min(900px, calc(100vw - 32px));
+  margin: auto; /* le reset global margin:0 casse le centrage natif */
+  padding: 0;
+  border: 1px solid var(--cyan);
+  background: var(--panel-solid);
+  color: var(--text);
+}
+
+.task-dialog::backdrop {
+  background: rgb(0 0 0 / 0.65);
+}
+
+.task-dialog .task-form {
+  border: 0;
+}
+
+.task-btn kbd {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  font-size: 0.6rem;
+  opacity: 0.7;
+}

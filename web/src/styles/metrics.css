@@ -77,7 +77,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   letter-spacing: 0.26em;
 }
 
@@ -169,7 +169,7 @@
 }
 
 .core-label {
-  font-size: 0.56rem;
+  font-size: 0.8rem;
   letter-spacing: 0.3em;
   color: var(--text-dim);
 }
@@ -183,7 +183,7 @@
 }
 
 .core-delta {
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   letter-spacing: 0.12em;
   color: var(--text-dim);
 }
@@ -207,7 +207,7 @@
 }
 
 .core-stats dt {
-  font-size: 0.54rem;
+  font-size: 0.8rem;
   letter-spacing: 0.2em;
   color: var(--text-faint);
 }
@@ -237,7 +237,7 @@
 }
 
 .flow-unit {
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   letter-spacing: 0.14em;
   color: var(--text-dim);
 }
@@ -304,7 +304,7 @@
 .flow-legend-label {
   color: var(--text-dim);
   letter-spacing: 0.12em;
-  font-size: 0.58rem;
+  font-size: 0.8rem;
 }
 
 .flow-legend-value {
@@ -317,7 +317,7 @@
   grid-column: 3;
   grid-row: 1 / span 2;
   color: var(--text-faint);
-  font-size: 0.64rem;
+  font-size: 0.8rem;
 }
 
 .flow-hit {
@@ -328,7 +328,7 @@
   margin-top: auto;
   padding-top: var(--space-2);
   border-top: 1px dashed var(--line);
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   letter-spacing: 0.2em;
   color: var(--text-dim);
 }
@@ -439,7 +439,7 @@
   padding: 4px var(--space-2);
   border-left: 2px solid var(--line-strong);
   background: rgba(63, 217, 255, 0.03);
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
   transition: border-color var(--dur-fast);
 }
@@ -488,7 +488,7 @@
 .rank-index {
   grid-area: index;
   align-self: start;
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   color: var(--text-faint);
 }
 
@@ -508,7 +508,7 @@
 
 .rank-value {
   grid-area: value;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   color: var(--text);
 }
 
@@ -533,14 +533,14 @@
 
 .rank-detail {
   grid-area: detail;
-  font-size: 0.58rem;
+  font-size: 0.8rem;
   letter-spacing: 0.1em;
   color: var(--text-faint);
 }
 
 .rank-empty {
   color: var(--text-faint);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   letter-spacing: 0.2em;
 }
 
@@ -564,7 +564,7 @@
 
 .hud-panel-action .period-btn {
   padding: 2px 7px;
-  font-size: 0.58rem;
+  font-size: 0.8rem;
 }
 
 .rank-swatch {
@@ -607,7 +607,7 @@
   align-items: center;
   gap: var(--space-2);
   margin-right: auto;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.32em;
   color: var(--text);

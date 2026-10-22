@@ -13,10 +13,11 @@ function useClock(): Date {
   return now;
 }
 
-export type MainView = "live" | "dashboard" | "config";
+export type MainView = "live" | "tasks" | "dashboard" | "config";
 
 const VIEWS: Array<{ value: MainView; label: string }> = [
   { value: "live", label: "LIVE" },
+  { value: "tasks", label: "TASKS" },
   { value: "dashboard", label: "DASHBOARD" },
   { value: "config", label: "CONFIG" },
 ];

@@ -124,6 +124,22 @@ const MIGRATIONS: readonly string[] = [
     purged_before TEXT NOT NULL,
     updated_at INTEGER NOT NULL
   )`,
+  // Kanban tasks: headless `claude -p` runs driven from the UI (see tasks/).
+  `CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    cwd TEXT NOT NULL,
+    model TEXT,
+    permission_mode TEXT NOT NULL,
+    status TEXT NOT NULL,
+    session_id TEXT,
+    last_result TEXT,
+    error TEXT,
+    cost_usd REAL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
 ];
 
 /** ALTERs applied after CREATE TABLE migrations — additive, safe to re-run. */

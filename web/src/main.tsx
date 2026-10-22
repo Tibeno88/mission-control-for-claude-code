@@ -6,6 +6,7 @@ import "./styles/global.css";
 import "./styles/hud.css";
 import "./styles/metrics.css";
 import "./styles/backup.css";
+import "./styles/tasks.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");

@@ -6,6 +6,7 @@ import { HistoryPanels } from "./components/HistoryPanels";
 import type { MainView } from "./components/Header";
 import { MetricsBar } from "./components/MetricsBar";
 import { SessionDetail } from "./components/SessionDetail";
+import { TaskBoard } from "./components/tasks/TaskBoard";
 import { useNotifications } from "./lib/useNotifications";
 import { useSnapshot } from "./lib/useSnapshot";
 
@@ -48,6 +49,15 @@ export default function App() {
           <div className="boot mono">
             ESTABLISHING UPLINK<span className="blink">▌</span>
           </div>
+        ) : view === "tasks" ? (
+          <TaskBoard
+            tasks={snap.tasks ?? []}
+            liveSessionIds={new Set(fleet.map((s) => s.sessionId))}
+            onOpenSession={(sessionId) => {
+              setSelectedId(sessionId);
+              setView("live");
+            }}
+          />
         ) : view === "dashboard" ? (
           <>
             <MetricsBar metrics={snap.metrics} />

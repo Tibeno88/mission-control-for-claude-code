@@ -146,7 +146,7 @@ mode développement (défaut `http://localhost:5173`).
 
 ## Guide fonctionnel
 
-L'UI a trois onglets, **LIVE**, **DASHBOARD** et **CONFIG**, commutables depuis l'en-tête.
+L'UI a quatre onglets, **LIVE**, **TASKS**, **DASHBOARD** et **CONFIG**, commutables depuis l'en-tête.
 
 ### En-tête (commun)
 
@@ -190,6 +190,31 @@ et affiche un badge `[n WAITING]` dans le titre de l'onglet. L'autorisation est
 demandée à la première transition, pas au chargement. Si elle a été refusée, la
 cloche est barrée : il faut débloquer les notifications dans les réglages du
 navigateur pour ce site.
+
+### Onglet TASKS
+
+Tableau Kanban de sessions Claude Code **headless** (`claude -p`), lancées en
+arrière-plan par le serveur. Colonnes `TODO`, `IN PROGRESS`, `WAITING`, `DONE`,
+plus un état `ARCHIVED` masqué par défaut (case « afficher archivées », bouton
+`RESTORE`).
+
+- Formulaire : titre, prompt, répertoire de travail (chemin absolu existant),
+  modèle optionnel, mode de permissions (`manual`, `acceptEdits`, `plan` ;
+  `bypassPermissions` est volontairement refusé).
+- `START` lance `claude -p --output-format json … -- <prompt>` ; quand le process
+  se termine, la tuile passe en `WAITING` avec la dernière réponse. On répond
+  dans la tuile (`Ctrl+Entrée`) : le serveur relance `claude --resume <session_id>`
+  avec ce message. `MARK DONE` clôt la tâche.
+- Process en erreur ou sortie illisible : la tuile reste en `WAITING` avec
+  l'erreur affichée (`RELANCER` si aucune session n'a encore été créée).
+  Au redémarrage du serveur, les tâches `IN PROGRESS` (process perdu) passent en
+  `WAITING` avec l'erreur « interrompue par redémarrage du serveur ».
+- Les tâches sont persistées dans la table SQLite `tasks`. Binaire `claude`
+  résolu via le `PATH`.
+- Sécurité : ces routes exécutent `claude`. Les mutations exigent
+  `Content-Type: application/json`, un `Host` local (`127.0.0.1` / `localhost`)
+  et, si présent, un `Origin` local identique au `Host` (anti-CSRF, anti-DNS
+  rebinding). Entrées validées (cwd, mode, modèle, tailles, id).
 
 ### Onglet DASHBOARD
 
@@ -377,6 +402,19 @@ invalide renvoie `400`.
 | `PUT`    | `/api/project-map`     | Met à jour le mapping                                                                                                                                                        |
 | `GET`    | `/api/archives`        | Métadonnées des archives                                                                                                                                                     |
 
+### Tâches (Kanban)
+
+| Méthode | Route                    | Rôle                                                                        |
+| ------- | ------------------------ | --------------------------------------------------------------------------- |
+| `GET`   | `/api/tasks`             | Liste des tâches                                                            |
+| `POST`  | `/api/tasks`             | Crée une tâche `todo` (`title`, `prompt`, `cwd`, `model?`, `permissionMode`) |
+| `POST`  | `/api/tasks/:id/start`   | Lance la tâche. `409` si déjà en cours ou déjà démarrée                      |
+| `POST`  | `/api/tasks/:id/reply`   | `{ message }` : reprend la session. `409` si la tâche n'est pas `waiting`    |
+| `PATCH` | `/api/tasks/:id`         | `title`, `prompt`, `status` ∈ `todo` (restauration), `done`, `archived`      |
+
+Mutations : `Content-Type: application/json` obligatoire, `Host`/`Origin` locaux
+(`403`/`415` sinon).
+
 ### WebSocket
 
 Canal unique sur `/ws`. Le serveur envoie un snapshot complet à la connexion,
@@ -384,7 +422,7 @@ puis à chaque changement (débounce 500 ms) et toutes les 10 s :
 
 | Message         | Contenu                                                         |
 | --------------- | --------------------------------------------------------------- |
-| `snapshot`      | `{ fleet, metrics, plannotator, generatedAt }`                  |
+| `snapshot`      | `{ fleet, metrics, plannotator, tasks, generatedAt }`           |
 | `backup_status` | `{ status: running\|done\|error, run?, message?, generatedAt }` |
 
 ## Exploitation

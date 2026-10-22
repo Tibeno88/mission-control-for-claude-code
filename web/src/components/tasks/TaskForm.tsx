@@ -1,0 +1,72 @@
+import { useState, type FormEvent } from "react";
+import { taskRequest } from "../../lib/tasksApi";
+
+const MODES = [
+  { value: "manual", label: "manual (demande)" },
+  { value: "acceptEdits", label: "acceptEdits" },
+  { value: "plan", label: "plan (lecture seule)" },
+];
+
+export function TaskForm() {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const model = String(data.get("model") ?? "").trim();
+    setBusy(true);
+    const err = await taskRequest("POST", "", {
+      title: data.get("title"),
+      prompt: data.get("prompt"),
+      cwd: String(data.get("cwd") ?? "").trim(),
+      permissionMode: data.get("permissionMode"),
+      ...(model ? { model } : {}),
+    });
+    setBusy(false);
+    setError(err);
+    if (!err) form.reset();
+  };
+
+  return (
+    <form className="task-form" onSubmit={(e) => void submit(e)}>
+      <label>
+        <span className="mono">TITRE</span>
+        <input name="title" required maxLength={200} />
+      </label>
+      <label>
+        <span className="mono">RÉPERTOIRE (chemin absolu)</span>
+        <input name="cwd" required placeholder="/home/…/projet" />
+      </label>
+      <label>
+        <span className="mono">MODÈLE (optionnel)</span>
+        <input name="model" placeholder="sonnet, opus…" maxLength={64} />
+      </label>
+      <label>
+        <span className="mono">PERMISSIONS</span>
+        <select name="permissionMode" defaultValue="manual">
+          {MODES.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="task-form-prompt">
+        <span className="mono">PROMPT</span>
+        <textarea name="prompt" required rows={3} maxLength={20000} />
+      </label>
+      <div className="task-form-actions">
+        <button type="submit" className="task-btn primary" disabled={busy}>
+          CRÉER (TODO)
+        </button>
+        {error && (
+          <span className="task-error mono" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}

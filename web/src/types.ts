@@ -124,7 +124,28 @@ export interface Snapshot {
   metrics: GlobalMetrics;
   /** Every live Plannotator UI — attached and unattached alike. */
   plannotator: PlannotatorSessionInfo[];
+  tasks: Task[];
   generatedAt: number;
+}
+
+// ===== Kanban tasks (headless `claude -p` runs) =====
+
+export type TaskStatus = "todo" | "in_progress" | "waiting" | "done" | "archived";
+
+export interface Task {
+  id: string;
+  title: string;
+  prompt: string;
+  cwd: string;
+  model: string | null;
+  permissionMode: string;
+  status: TaskStatus;
+  sessionId: string | null;
+  lastResult: string | null;
+  error: string | null;
+  costUsd: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 // ===== Backup / archive supervision (Phase 5) =====

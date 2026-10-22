@@ -17,6 +17,9 @@ import { attachPlannotator, buildFleet, buildMetrics } from "./metrics.js";
 import { PlannotatorRegistry } from "./plannotator.js";
 import { PricingTable } from "./pricing.js";
 import { LiveRegistry } from "./sessions.js";
+import { registerTaskRoutes } from "./tasks/api.js";
+import { TaskRunner } from "./tasks/runner.js";
+import { listTasks } from "./tasks/store.js";
 import { TranscriptStore } from "./transcripts.js";
 
 const SESSION_ID_RE = /^[0-9a-fA-F-]{8,64}$/;
@@ -102,6 +105,11 @@ async function main(): Promise<void> {
     config.backupDir,
   );
 
+  const taskRunner = new TaskRunner(db);
+  const recovered = taskRunner.recoverInterrupted();
+  if (recovered > 0)
+    console.log(`[tasks] ${recovered} interrupted task(s) parked in waiting`);
+
   // Sessions manually removed from the grid (memory only — nothing touched on disk).
   const dismissed = new Set<string>();
 
@@ -118,6 +126,7 @@ async function main(): Promise<void> {
       ),
       metrics: buildMetrics(store),
       plannotator: plannotatorSessions,
+      tasks: listTasks(db),
       generatedAt: Date.now(),
     };
   };
@@ -166,6 +175,7 @@ async function main(): Promise<void> {
     store,
     config,
   });
+  registerTaskRoutes(app, { db, runner: taskRunner });
   registerStaticUi(app);
 
   const server = serve(
@@ -215,6 +225,7 @@ async function main(): Promise<void> {
   plannotator.on("change", scheduleBroadcast);
   store.on("update", scheduleBroadcast);
   backupService.on("status", broadcastBackupStatus);
+  taskRunner.on("change", scheduleBroadcast);
   // Heartbeat keeps relative timers and stale-PID detection fresh client-side.
   setInterval(broadcast, HEARTBEAT_MS).unref();
 

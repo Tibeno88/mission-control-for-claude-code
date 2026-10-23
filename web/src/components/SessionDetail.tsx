@@ -19,6 +19,17 @@ interface SessionDetailProps {
 export function SessionDetail({ session, onClose }: SessionDetailProps) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copySid = () => {
+    navigator.clipboard
+      ?.writeText(session.sessionId)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     let disposed = false;
@@ -84,7 +95,18 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
           </button>
         </div>
       </header>
-      <p className="detail-sid mono">{session.sessionId}</p>
+      <p className="detail-sid mono">
+        {session.sessionId}
+        <button
+          type="button"
+          className="copy-btn"
+          onClick={copySid}
+          aria-label="Copier l'id de session"
+          title="Copier l'id de session"
+        >
+          {copied ? "✓" : "⧉"}
+        </button>
+      </p>
 
       <dl className="detail-meta mono">
         {session.name?.trim() && (

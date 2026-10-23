@@ -582,6 +582,19 @@
   word-break: break-all;
 }
 
+.copy-btn {
+  margin-left: 6px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  color: var(--cyan);
+}
+
 .detail-meta {
   display: flex;
   flex-direction: column;

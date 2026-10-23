@@ -149,6 +149,11 @@ const COLUMN_MIGRATIONS: ReadonlyArray<{
   ddl: string;
 }> = [
   {
+    table: "tasks",
+    column: "allowed_tools",
+    ddl: "ALTER TABLE tasks ADD COLUMN allowed_tools TEXT",
+  },
+  {
     table: "session_snapshots",
     column: "cache_write_5m_tokens",
     ddl: "ALTER TABLE session_snapshots ADD COLUMN cache_write_5m_tokens INTEGER NOT NULL DEFAULT 0",

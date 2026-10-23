@@ -61,6 +61,7 @@ describe("TaskRunner", () => {
       cwd: root,
       model: "sonnet",
       permissionMode: "plan",
+      allowedTools: ["Read", "Bash(git status:*)"],
     });
 
   beforeEach(async () => {
@@ -92,7 +93,8 @@ describe("TaskRunner", () => {
       cwd: root,
       args: [
         "-p", "--output-format", "json", "--model", "sonnet",
-        "--permission-mode", "plan", "--", "do it",
+        "--permission-mode", "plan",
+        "--allowedTools", "Read,Bash(git status:*)", "--", "do it",
       ],
     });
   });

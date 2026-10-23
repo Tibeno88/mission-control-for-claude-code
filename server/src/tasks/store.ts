@@ -15,6 +15,8 @@ export interface Task {
   cwd: string;
   model: string | null;
   permissionMode: string;
+  /** null = all tools (CLI default for the execution context). */
+  allowedTools: string[] | null;
   status: TaskStatus;
   sessionId: string | null;
   lastResult: string | null;
@@ -31,6 +33,7 @@ interface TaskRow {
   cwd: string;
   model: string | null;
   permission_mode: string;
+  allowed_tools: string | null;
   status: TaskStatus;
   session_id: string | null;
   last_result: string | null;
@@ -47,6 +50,7 @@ const toTask = (r: TaskRow): Task => ({
   cwd: r.cwd,
   model: r.model,
   permissionMode: r.permission_mode,
+  allowedTools: r.allowed_tools ? (JSON.parse(r.allowed_tools) as string[]) : null,
   status: r.status,
   sessionId: r.session_id,
   lastResult: r.last_result,
@@ -62,6 +66,7 @@ export interface NewTask {
   cwd: string;
   model: string | null;
   permissionMode: string;
+  allowedTools: string[] | null;
 }
 
 /** Columns that `updateTask` may write (camelCase key -> SQL column). */
@@ -83,8 +88,8 @@ export function createTask(db: Database.Database, input: NewTask): Task {
   const now = Date.now();
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, title, prompt, cwd, model, permission_mode, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'todo', ?, ?)`,
+    `INSERT INTO tasks (id, title, prompt, cwd, model, permission_mode, allowed_tools, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'todo', ?, ?)`,
   ).run(
     id,
     input.title,
@@ -92,6 +97,7 @@ export function createTask(db: Database.Database, input: NewTask): Task {
     input.cwd,
     input.model,
     input.permissionMode,
+    input.allowedTools?.length ? JSON.stringify(input.allowedTools) : null,
     now,
     now,
   );

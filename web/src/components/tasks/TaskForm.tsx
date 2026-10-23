@@ -20,6 +20,10 @@ export function TaskForm({ onCreated, onCancel }: TaskFormProps) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const model = String(data.get("model") ?? "").trim();
+    const tools = String(data.get("allowedTools") ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     setBusy(true);
     const err = await taskRequest("POST", "", {
       title: data.get("title"),
@@ -27,6 +31,7 @@ export function TaskForm({ onCreated, onCancel }: TaskFormProps) {
       cwd: String(data.get("cwd") ?? "").trim(),
       permissionMode: data.get("permissionMode"),
       ...(model ? { model } : {}),
+      ...(tools.length ? { allowedTools: tools } : {}),
     });
     setBusy(false);
     setError(err);
@@ -56,6 +61,10 @@ export function TaskForm({ onCreated, onCancel }: TaskFormProps) {
             </option>
           ))}
         </select>
+      </label>
+      <label>
+        <span className="mono">OUTILS AUTORISÉS (vide = tous)</span>
+        <input name="allowedTools" placeholder="Read, Grep, Bash(git status:*)" />
       </label>
       <label className="task-form-prompt">
         <span className="mono">PROMPT</span>

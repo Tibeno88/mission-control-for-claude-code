@@ -19,6 +19,9 @@ const ID_RE = /^[0-9a-f-]{36}$/;
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._[\]-]{0,63}$/;
 // Names of the installed CLI (`claude --permission-mode`); bypassPermissions is deliberately absent.
 const PERMISSION_MODES: readonly string[] = ["manual", "acceptEdits", "plan"];
+// One tool spec, e.g. `Read`, `Bash(git status:*)`, `mcp__srv__tool`; no comma (list separator), no leading dash.
+const TOOL_RE = /^[A-Za-z_][A-Za-z0-9_ .:*/()@=\\[\]-]{0,199}$/;
+const MAX_TOOLS = 50;
 const LOCAL_HOSTNAMES = new Set(["127.0.0.1", "localhost"]);
 const MAX_TITLE = 200;
 const MAX_TEXT = 20_000;
@@ -118,6 +121,7 @@ export function registerTaskRoutes(
     const prompt = str(b.prompt, MAX_TEXT);
     const cwd = validCwd(b.cwd);
     const permissionMode = b.permissionMode ?? "manual";
+    const tools = b.allowedTools ?? null;
     const model =
       b.model === undefined || b.model === null || b.model === ""
         ? null
@@ -134,9 +138,23 @@ export function registerTaskRoutes(
       !PERMISSION_MODES.includes(permissionMode)
     )
       return c.json({ error: "invalid permissionMode" }, 400);
+    if (
+      tools !== null &&
+      (!Array.isArray(tools) ||
+        tools.length > MAX_TOOLS ||
+        !tools.every((t) => typeof t === "string" && TOOL_RE.test(t)))
+    )
+      return c.json({ error: "invalid allowedTools" }, 400);
     if (model !== null && (typeof model !== "string" || !MODEL_RE.test(model)))
       return c.json({ error: "invalid model" }, 400);
-    const task = createTask(db, { title, prompt, cwd, model, permissionMode });
+    const task = createTask(db, {
+      title,
+      prompt,
+      cwd,
+      model,
+      permissionMode,
+      allowedTools: tools as string[] | null,
+    });
     runner.emit("change");
     return c.json({ task }, 201);
   });

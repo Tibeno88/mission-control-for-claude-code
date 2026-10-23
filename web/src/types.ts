@@ -139,6 +139,7 @@ export interface Task {
   cwd: string;
   model: string | null;
   permissionMode: string;
+  allowedTools: string[] | null;
   status: TaskStatus;
   sessionId: string | null;
   lastResult: string | null;

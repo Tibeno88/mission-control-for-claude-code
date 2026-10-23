@@ -135,6 +135,9 @@ export class TaskRunner extends EventEmitter {
       ...(t.model ? ["--model", t.model] : []),
       "--permission-mode",
       t.permissionMode,
+      ...(t.allowedTools?.length
+        ? ["--allowedTools", t.allowedTools.join(",")]
+        : []),
       ...(resume && t.sessionId ? ["--resume", t.sessionId] : []),
       "--",
       text,

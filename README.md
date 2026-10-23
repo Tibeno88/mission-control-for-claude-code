@@ -407,7 +407,7 @@ invalide renvoie `400`.
 | Méthode | Route                    | Rôle                                                                        |
 | ------- | ------------------------ | --------------------------------------------------------------------------- |
 | `GET`   | `/api/tasks`             | Liste des tâches                                                            |
-| `POST`  | `/api/tasks`             | Crée une tâche `todo` (`title`, `prompt`, `cwd`, `model?`, `permissionMode`) |
+| `POST`  | `/api/tasks`             | Crée une tâche `todo` (`title`, `prompt`, `cwd`, `model?`, `permissionMode`, `allowedTools?` : liste `--allowedTools`, absent = tous) |
 | `POST`  | `/api/tasks/:id/start`   | Lance la tâche. `409` si déjà en cours ou déjà démarrée                      |
 | `POST`  | `/api/tasks/:id/reply`   | `{ message }` : reprend la session. `409` si la tâche n'est pas `waiting`    |
 | `PATCH` | `/api/tasks/:id`         | `title`, `prompt`, `status` ∈ `todo` (restauration), `done`, `archived`      |

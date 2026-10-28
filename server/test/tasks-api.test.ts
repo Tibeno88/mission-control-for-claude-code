@@ -78,6 +78,14 @@ describe("tasks/api", () => {
     expect(res.status).toBe(201);
   });
 
+  test("PATCH permissionMode: accepts auto, rejects bypassPermissions", async () => {
+    const id = (await (await call("POST", "/api/tasks", valid())).json()).task.id;
+    const ok = await call("PATCH", `/api/tasks/${id}`, { permissionMode: "auto" });
+    expect((await ok.json()).task.permissionMode).toBe("auto");
+    const bad = await call("PATCH", `/api/tasks/${id}`, { permissionMode: "bypassPermissions" });
+    expect(bad.status).toBe(400);
+  });
+
   test.each([
     ["relative cwd", { cwd: "relative/dir" }],
     ["missing cwd", { cwd: "/definitely/not/here" }],

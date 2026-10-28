@@ -18,7 +18,7 @@ import {
 const ID_RE = /^[0-9a-f-]{36}$/;
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._[\]-]{0,63}$/;
 // Names of the installed CLI (`claude --permission-mode`); bypassPermissions is deliberately absent.
-const PERMISSION_MODES: readonly string[] = ["manual", "acceptEdits", "plan"];
+const PERMISSION_MODES: readonly string[] = ["manual", "acceptEdits", "auto", "plan"];
 // One tool spec, e.g. `Read`, `Bash(git status:*)`, `mcp__srv__tool`; no comma (list separator), no leading dash.
 const TOOL_RE = /^[A-Za-z_][A-Za-z0-9_ .:*/()@=\\[\]-]{0,199}$/;
 const MAX_TOOLS = 50;
@@ -179,7 +179,13 @@ export function registerTaskRoutes(
       prompt?: string;
       status?: TaskStatus;
       allowedTools?: string[] | null;
+      permissionMode?: string;
     } = {};
+    if (b.permissionMode !== undefined) {
+      if (typeof b.permissionMode !== "string" || !PERMISSION_MODES.includes(b.permissionMode))
+        return c.json({ error: "invalid permissionMode" }, 400);
+      patch.permissionMode = b.permissionMode;
+    }
     if (b.allowedTools !== undefined) {
       if (!validTools(b.allowedTools))
         return c.json({ error: "invalid allowedTools" }, 400);

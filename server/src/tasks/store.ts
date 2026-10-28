@@ -85,6 +85,7 @@ const COLUMNS = {
   error: "error",
   costUsd: "cost_usd",
   allowedTools: "allowed_tools",
+  permissionMode: "permission_mode",
   deniedTools: "denied_tools",
 } as const;
 

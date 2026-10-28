@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { taskRequest } from "../../lib/tasksApi";
 
-const MODES = [
+export const MODES = [
   { value: "manual", label: "manual (demande)" },
   { value: "acceptEdits", label: "acceptEdits" },
+  { value: "auto", label: "auto" },
   { value: "plan", label: "plan (lecture seule)" },
 ];
 

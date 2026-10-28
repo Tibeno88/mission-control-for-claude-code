@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fmtUSD, timeAgo } from "../../lib/format";
 import { taskRequest } from "../../lib/tasksApi";
+import { MODES } from "./TaskForm";
 import type { Task } from "../../types";
 
 interface TaskTileProps {
@@ -25,6 +26,7 @@ export function TaskTile({
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState(task.permissionMode);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Native <dialog>: focus trap and Escape come for free.
@@ -44,7 +46,11 @@ export function TaskTile({
   };
   const patch = (status: string): void => void act("PATCH", "", { status });
   const send = async (): Promise<void> => {
-    if (reply.trim() && (await act("POST", "/reply", { message: reply }))) {
+    if (!reply.trim()) return;
+    // Mode change (ex. plan -> auto) applies to the resumed run.
+    if (mode !== task.permissionMode && !(await act("PATCH", "", { permissionMode: mode })))
+      return;
+    if (await act("POST", "/reply", { message: reply })) {
       setReply("");
       dialogRef.current?.close();
     }
@@ -159,6 +165,16 @@ export function TaskTile({
                     }}
                   />
                 </label>
+                <label>
+                  <span className="mono">MODE</span>
+                  <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                    {MODES.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
                   className="task-btn primary"
@@ -222,6 +238,16 @@ export function TaskTile({
                 }
               }}
             />
+          </label>
+          <label>
+            <span className="mono">MODE</span>
+            <select value={mode} onChange={(e) => setMode(e.target.value)}>
+              {MODES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </label>
           <button
             type="button"

@@ -26,6 +26,8 @@ export interface Task {
   costUsd: number | null;
   createdAt: number;
   updatedAt: number;
+  /** Derived at read time (runner.decorate), never stored. */
+  plannotatorUrl?: string;
 }
 
 interface TaskRow {

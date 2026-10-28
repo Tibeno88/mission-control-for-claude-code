@@ -11,6 +11,7 @@ import {
   type Spawner,
   type SpawnResult,
 } from "../src/tasks/runner.js";
+import { withPlannotatorUrls } from "../src/tasks/runner.js";
 import { createTask, getTask, updateTask } from "../src/tasks/store.js";
 
 const ok = (over: Record<string, unknown> = {}): SpawnResult => ({
@@ -188,5 +189,21 @@ describe("TaskRunner", () => {
       status: "waiting",
       error: "interrompue par redémarrage du serveur",
     });
+  });
+});
+
+describe("withPlannotatorUrls", () => {
+  const t = (id: string, status: string) => ({ id, status }) as never;
+  const live = [{ pid: 10, sessionId: "s1" }] as never;
+  const pn = [{ pid: 99, url: "http://x", claudeSessionId: "s1" }] as never;
+
+  test("attaches url only to in_progress task with matching pid", () => {
+    const out = withPlannotatorUrls(
+      [t("a", "in_progress"), t("b", "in_progress"), t("c", "waiting")],
+      new Map([["a", 10], ["c", 10]]),
+      live,
+      pn,
+    );
+    expect(out.map((x) => x.plannotatorUrl)).toEqual(["http://x", undefined, undefined]);
   });
 });

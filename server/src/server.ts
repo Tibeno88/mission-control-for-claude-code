@@ -126,7 +126,7 @@ async function main(): Promise<void> {
       ),
       metrics: buildMetrics(store),
       plannotator: plannotatorSessions,
-      tasks: listTasks(db),
+      tasks: taskRunner.decorate(listTasks(db), live, plannotatorSessions),
       generatedAt: Date.now(),
     };
   };

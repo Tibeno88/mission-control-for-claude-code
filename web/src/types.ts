@@ -148,6 +148,7 @@ export interface Task {
   costUsd: number | null;
   createdAt: number;
   updatedAt: number;
+  plannotatorUrl?: string;
 }
 
 // ===== Backup / archive supervision (Phase 5) =====

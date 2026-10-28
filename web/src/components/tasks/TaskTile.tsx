@@ -58,6 +58,14 @@ export function TaskTile({
             <span className="task-spinner" aria-hidden="true" />
           )}
           {LABEL[task.status]}
+          {task.plannotatorUrl && (
+            <>
+              {" · "}
+              <a href={task.plannotatorUrl} target="_blank" rel="noopener noreferrer">
+                PLANNOTATOR
+              </a>
+            </>
+          )}
         </span>
         <span className="task-meta">
           {task.costUsd !== null && `${fmtUSD(task.costUsd)} · `}

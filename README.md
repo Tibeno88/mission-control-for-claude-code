@@ -287,7 +287,9 @@ Plannotator fournit une UI d'annotation de plans et de revue de code. S'il est
 installé, Mission Control affiche les UI actives : compteur dans l'en-tête,
 panneau et lien direct sur la carte de la session concernée. L'attribution à une
 session Claude n'est faite que lorsqu'elle est **certaine** (filiation de PID) ;
-sinon l'UI reste comptée mais non rattachée.
+sinon l'UI reste comptée mais non rattachée. Une tâche `in_progress` dont le
+processus `claude` possède une UI Plannotator affiche un lien « PLANNOTATOR »
+(champ dérivé `plannotatorUrl` du snapshot WS, jamais persisté).
 
 Sans Plannotator, tout fonctionne normalement : le compteur reste à zéro et
 `/api/plannotator` renvoie une liste vide. Si son répertoire de données n'est pas

@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type Database from "better-sqlite3";
+import type { PlannotatorSessionInfo } from "../types.js";
+import type { LiveSession } from "../sessions.js";
 import { getTask, listTasks, updateTask, type Task } from "./store.js";
 
 export interface SpawnResult {
@@ -14,19 +16,21 @@ export type Spawner = (
   bin: string,
   args: string[],
   opts: { cwd: string },
+  onPid?: (pid: number) => void,
 ) => Promise<SpawnResult>;
 
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 const MAX_RESULT_CHARS = 200_000;
 const MAX_ERROR_CHARS = 1_000;
 
-export const defaultSpawner: Spawner = (bin, args, { cwd }) =>
+export const defaultSpawner: Spawner = (bin, args, { cwd }, onPid) =>
   new Promise((resolve) => {
     const child = spawn(bin, args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
       shell: false,
     });
+    if (child.pid) onPid?.(child.pid);
     let stdout = "";
     let stderr = "";
     const cap = (acc: string, chunk: Buffer): string =>
@@ -81,11 +85,29 @@ export function parseClaudeOutput(stdout: string): ParsedOutput | null {
   };
 }
 
+/** Derived, never persisted: in_progress tasks whose claude process owns a Plannotator UI. */
+export function withPlannotatorUrls(
+  tasks: Task[],
+  pids: ReadonlyMap<string, number>,
+  live: readonly LiveSession[],
+  plannotator: readonly PlannotatorSessionInfo[],
+): Task[] {
+  return tasks.map((t) => {
+    const pid = pids.get(t.id);
+    if (t.status !== "in_progress" || !pid) return t;
+    const sid = live.find((l) => l.pid === pid)?.sessionId;
+    const url = sid && plannotator.find((p) => p.claudeSessionId === sid)?.url;
+    return url ? { ...t, plannotatorUrl: url } : t;
+  });
+}
+
 export class TaskConflictError extends Error {}
 export class TaskNotFoundError extends Error {}
 
 export class TaskRunner extends EventEmitter {
   private readonly running = new Map<string, Promise<void>>();
+  /** task id -> pid of its running claude process (memory only). */
+  private readonly pids = new Map<string, number>();
 
   constructor(
     private readonly db: Database.Database,
@@ -125,6 +147,14 @@ export class TaskRunner extends EventEmitter {
     return this.launch(t, message, true);
   }
 
+  decorate(
+    tasks: Task[],
+    live: readonly LiveSession[],
+    plannotator: readonly PlannotatorSessionInfo[],
+  ): Task[] {
+    return withPlannotatorUrls(tasks, this.pids, live, plannotator);
+  }
+
   /** Resolves when the task's current process (if any) has finished. */
   whenSettled(id: string): Promise<void> {
     return this.running.get(id) ?? Promise.resolve();
@@ -159,13 +189,16 @@ export class TaskRunner extends EventEmitter {
       error: null,
       deniedTools: [],
     }) as Task;
-    const run = this.spawner(this.bin, args, { cwd: t.cwd })
+    const run = this.spawner(this.bin, args, { cwd: t.cwd }, (pid) =>
+      this.pids.set(t.id, pid),
+    )
       .then((res) => this.finish(t, res))
       .catch((err: unknown) =>
         this.fail(t.id, err instanceof Error ? err.message : "spawn failed"),
       )
       .finally(() => {
         this.running.delete(t.id);
+        this.pids.delete(t.id);
         this.emit("change");
       });
     this.running.set(t.id, run);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fmtUSD, timeAgo } from "../../lib/format";
 import { taskRequest } from "../../lib/tasksApi";
 import type { Task } from "../../types";
@@ -24,6 +24,14 @@ export function TaskTile({
 }: TaskTileProps) {
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // Native <dialog>: focus trap and Escape come for free.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (expanded && dialog && !dialog.open) dialog.showModal();
+  }, [expanded]);
 
   const act = async (
     method: "POST" | "PATCH",
@@ -36,8 +44,10 @@ export function TaskTile({
   };
   const patch = (status: string): void => void act("PATCH", "", { status });
   const send = async (): Promise<void> => {
-    if (reply.trim() && (await act("POST", "/reply", { message: reply })))
+    if (reply.trim() && (await act("POST", "/reply", { message: reply }))) {
       setReply("");
+      dialogRef.current?.close();
+    }
   };
   const allowAndResume = async (): Promise<void> => {
     const tools = [...new Set([...(task.allowedTools ?? []), ...task.deniedTools])];
@@ -70,8 +80,98 @@ export function TaskTile({
         <span className="task-meta">
           {task.costUsd !== null && `${fmtUSD(task.costUsd)} · `}
           {timeAgo(task.updatedAt)}
+          <button
+            type="button"
+            className="task-btn task-expand"
+            aria-label="Ouvrir le détail de la tâche"
+            title="Détail / réponse"
+            onClick={() => setExpanded(true)}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path
+                d="M9 2h5v5M7 14H2V9M14 2 9.5 6.5M2 14l4.5-4.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+            </svg>
+          </button>
         </span>
       </header>
+      <dialog
+        ref={dialogRef}
+        className="task-modal"
+        aria-label={`Détail : ${task.title}`}
+        onClose={() => setExpanded(false)}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) e.currentTarget.close();
+        }}
+      >
+        {expanded && (
+          <>
+            <header className="task-modal-head mono">
+              <span>
+                {LABEL[task.status]} · {task.cwd}
+              </span>
+              <button
+                type="button"
+                className="task-btn"
+                onClick={() => dialogRef.current?.close()}
+              >
+                FERMER (Échap)
+              </button>
+            </header>
+            <div className="task-modal-body">
+              <h3 className="task-title">{task.title}</h3>
+              <pre className="task-result" tabIndex={0} aria-label="Description">
+                {task.prompt}
+              </pre>
+              {task.lastResult && (
+                <pre
+                  className="task-result"
+                  tabIndex={0}
+                  aria-label="Dernière réponse de Claude"
+                >
+                  {task.lastResult}
+                </pre>
+              )}
+              {shown && (
+                <p className="task-error mono" role="alert">
+                  {shown}
+                </p>
+              )}
+            </div>
+            {task.status === "waiting" && task.sessionId && (
+              <div className="task-reply task-modal-reply">
+                <label>
+                  <span className="mono">VOTRE RÉPONSE</span>
+                  <textarea
+                    value={reply}
+                    rows={6}
+                    maxLength={20000}
+                    autoFocus
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="task-btn primary"
+                  disabled={!reply.trim()}
+                  onClick={() => void send()}
+                >
+                  ENVOYER (Ctrl+Entrée)
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </dialog>
       <h3 className="task-title">{task.title}</h3>
       <p className="task-prompt" title={task.prompt}>
         {task.prompt}

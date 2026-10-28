@@ -294,6 +294,64 @@
   background: rgb(0 0 0 / 0.65);
 }
 
+/* Modale détail/réponse : 75 % de la fenêtre, centrée */
+.task-modal {
+  width: 75vw;
+  height: 75vh;
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--cyan);
+  background: var(--panel-solid);
+  color: var(--text);
+}
+
+.task-modal[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.task-modal::backdrop {
+  background: rgb(0 0 0 / 0.65);
+}
+
+.task-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+
+.task-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.task-modal .task-result {
+  max-height: none;
+}
+
+.task-modal-reply textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.task-expand {
+  margin-left: 8px;
+  padding: 2px 6px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
 .task-dialog .task-form {
   border: 0;
 }

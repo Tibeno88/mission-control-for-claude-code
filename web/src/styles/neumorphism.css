@@ -537,7 +537,7 @@
 
 /* ===== Champs de saisie : creux + trait d'appui (≥ 3:1) + libellé ===== */
 
-.app :is(.task-form, .task-reply, .form-field, .account-form, .account-filter, .project-map-row) :is(input:not([type="checkbox"], [type="color"]), select, textarea) {
+.app :is(.task-form, .task-reply, .task-modal-reply, .form-field, .account-form, .account-filter, .project-map-row) :is(input:not([type="checkbox"], [type="color"]), select, textarea) {
   min-height: var(--target);
   padding: 10px 16px 14px;
   border: 0;
@@ -616,7 +616,7 @@
 /* ===== Contrastes forcés : les bordures réapparaissent ===== */
 
 @media (forced-colors: active) {
-  .app :is(.card, .hud-panel, .header, .detail, .task-dialog, .task-col, .task-tile, .backup-panel, .account-manager, .archive-browser, .archive-browser-row, .subagent-item, .plan-dropdown, .plan-popover, .detail-meta, .timeline-readout, .task-result, .archive-error, .meter, .rank-track, .flow-bar),
+  .app :is(.card, .hud-panel, .header, .detail, .task-dialog, .task-modal, .task-col, .task-tile, .backup-panel, .account-manager, .archive-browser, .archive-browser-row, .subagent-item, .plan-dropdown, .plan-popover, .detail-meta, .timeline-readout, .task-result, .archive-error, .meter, .rank-track, .flow-bar),
   .app :is(.view-tab, .period-btn, .preset-btn, .task-btn, .form-submit, .backup-run-btn, .detail-close, .detail-expand, .account-delete, .card-dismiss, .plan-badge, .plan-count),
   .app :is(input, select, textarea) {
     border: 1px solid ButtonText;

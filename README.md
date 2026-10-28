@@ -294,6 +294,47 @@ Sans Plannotator, tout fonctionne normalement : le compteur reste à zéro et
 `~/.plannotator`, déclarez-le via `CMC_PLANNOTATOR_DIR` (ou la variable
 `PLANNOTATOR_DATA_DIR` de Plannotator lui-même, reconnue en repli).
 
+#### Éviter la coupure de session
+
+Un `plannotator annotate` lancé par l'outil Bash de Claude passe en arrière-plan
+après 120 s. Le harness le tue à 10 min (« background time limit »). L'assistant
+termine souvent son tour sans attendre : l'annotation n'est jamais lue.
+
+**Option D : hook de plan (recommandé).** Le hook ne passe pas par Bash, donc le
+plafond de 10 min ne s'applique pas. Le champ `timeout` d'un hook est en
+**secondes** (défaut 600 pour `command`). Le matcher filtre sur le nom d'outil ;
+`ExitPlanMode` est un nom d'outil valide. Exemple (`~/.claude/settings.json`) :
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [{ "type": "command", "command": "plannotator", "timeout": 345600 }]
+      }
+    ]
+  }
+}
+```
+
+Non vérifié dans la doc Claude Code : que `PermissionRequest` se déclenche pour
+`ExitPlanMode` (sinon utiliser `PreToolUse`, qui le liste explicitement), et la
+commande exacte de hook de Plannotator (voir sa documentation). Contrôlez avec
+`/hooks` ou `claude --debug`.
+
+**Option E : lancement détaché + attente active.** Pour `/plannotator-annotate` :
+
+```bash
+setsid nohup plannotator annotate plan.md > /tmp/pn.out 2>&1 &
+```
+
+Puis attendez la sortie avec `Monitor` (ou une boucle `until grep`). Le tour ne
+doit pas finir avant le résultat. Gardez des commandes simples (pas de `;` ni
+`&&`) et pré-autorisez `Bash(plannotator:*)` et `Bash(setsid:*)`. `Monitor`
+expire au plus après 30 min (plafond de l'outil) : relancez-le à chaque expiration.
+Ce plafond vient de la description de l'outil, non de la doc des hooks.
+
 ### Schéma SQLite
 
 `$CMC_DATA_DIR/cmc.db` est la source ouvrable par un outil externe (DB Browser

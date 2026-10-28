@@ -88,7 +88,7 @@ export function TaskTile({
           {timeAgo(task.updatedAt)}
           <button
             type="button"
-            className="task-btn task-expand"
+            className={`task-btn task-expand${task.status === "waiting" ? " attention" : ""}`}
             aria-label="Ouvrir le détail de la tâche"
             title="Détail / réponse"
             onClick={() => setExpanded(true)}
@@ -147,6 +147,18 @@ export function TaskTile({
                 </p>
               )}
             </div>
+          {task.status === "waiting" && task.sessionId && task.deniedTools.length > 0 && (
+            <div className="task-denied">
+              <span className="mono">OUTILS REFUSÉS : {task.deniedTools.join(", ")}</span>
+              <button
+                type="button"
+                className="task-btn"
+                onClick={() => void allowAndResume()}
+              >
+                AUTORISER + RELANCER
+              </button>
+            </div>
+          )}
             {task.status === "waiting" && task.sessionId && (
               <div className="task-reply task-modal-reply">
                 <label>
@@ -194,70 +206,10 @@ export function TaskTile({
       </p>
       <p className="task-cwd mono">{task.cwd}</p>
 
-      {task.lastResult && (
-        <pre
-          className="task-result"
-          tabIndex={0}
-          aria-label="Dernière réponse de Claude"
-        >
-          {task.lastResult}
-        </pre>
-      )}
       {shown && (
         <p className="task-error mono" role="alert">
           {shown}
         </p>
-      )}
-
-      {task.status === "waiting" && task.sessionId && task.deniedTools.length > 0 && (
-        <div className="task-denied">
-          <span className="mono">OUTILS REFUSÉS : {task.deniedTools.join(", ")}</span>
-          <button
-            type="button"
-            className="task-btn"
-            onClick={() => void allowAndResume()}
-          >
-            AUTORISER + RELANCER
-          </button>
-        </div>
-      )}
-
-      {task.status === "waiting" && task.sessionId && (
-        <div className="task-reply">
-          <label>
-            <span className="mono">VOTRE RÉPONSE</span>
-            <textarea
-              value={reply}
-              rows={3}
-              maxLength={20000}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-            />
-          </label>
-          <label>
-            <span className="mono">MODE</span>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              {MODES.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="task-btn primary"
-            disabled={!reply.trim()}
-            onClick={() => void send()}
-          >
-            ENVOYER (Ctrl+Entrée)
-          </button>
-        </div>
       )}
 
       <footer className="task-actions">

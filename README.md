@@ -205,6 +205,9 @@ plus un état `ARCHIVED` masqué par défaut (case « afficher archivées », bo
   se termine, la tuile passe en `WAITING` avec la dernière réponse. On répond
   dans la tuile (`Ctrl+Entrée`) : le serveur relance `claude --resume <session_id>`
   avec ce message. `MARK DONE` clôt la tâche.
+- Outils refusés (`permission_denials` du JSON de sortie) : listés dans la tuile ;
+  `AUTORISER + RELANCER` les ajoute à `allowedTools` (`PATCH`) puis envoie « continue »
+  (`--resume` avec la liste mise à jour). Portée : cette tâche uniquement.
 - Process en erreur ou sortie illisible : la tuile reste en `WAITING` avec
   l'erreur affichée (`RELANCER` si aucune session n'a encore été créée).
   Au redémarrage du serveur, les tâches `IN PROGRESS` (process perdu) passent en
@@ -410,7 +413,7 @@ invalide renvoie `400`.
 | `POST`  | `/api/tasks`             | Crée une tâche `todo` (`title`, `prompt`, `cwd`, `model?`, `permissionMode`, `allowedTools?` : liste `--allowedTools`, absent = tous) |
 | `POST`  | `/api/tasks/:id/start`   | Lance la tâche. `409` si déjà en cours ou déjà démarrée                      |
 | `POST`  | `/api/tasks/:id/reply`   | `{ message }` : reprend la session. `409` si la tâche n'est pas `waiting`    |
-| `PATCH` | `/api/tasks/:id`         | `title`, `prompt`, `status` ∈ `todo` (restauration), `done`, `archived`      |
+| `PATCH` | `/api/tasks/:id`         | `title`, `prompt`, `allowedTools` (même validation qu'à la création), `status` ∈ `todo` (restauration), `done`, `archived` |
 
 Mutations : `Content-Type: application/json` obligatoire, `Host`/`Origin` locaux
 (`403`/`415` sinon).

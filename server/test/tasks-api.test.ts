@@ -125,6 +125,14 @@ describe("tasks/api", () => {
     expect((await call("PATCH", `/api/tasks/${id}`, { status: "in_progress" })).status).toBe(400);
   });
 
+  test("PATCH allowedTools: valid stored, invalid rejected", async () => {
+    const id = await create();
+    const ok = await call("PATCH", `/api/tasks/${id}`, { allowedTools: ["Bash(plannotator:*)"] });
+    expect(((await ok.json()) as any).task.allowedTools).toEqual(["Bash(plannotator:*)"]);
+    for (const bad of [["-x"], ["a,b"], "Bash", [1], Array(51).fill("Read")])
+      expect((await call("PATCH", `/api/tasks/${id}`, { allowedTools: bad })).status).toBe(400);
+  });
+
   test("cannot archive while in progress", async () => {
     hold = true;
     const id = await create();

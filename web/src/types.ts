@@ -140,6 +140,7 @@ export interface Task {
   model: string | null;
   permissionMode: string;
   allowedTools: string[] | null;
+  deniedTools: string[];
   status: TaskStatus;
   sessionId: string | null;
   lastResult: string | null;

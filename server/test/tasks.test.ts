@@ -33,7 +33,21 @@ describe("parseClaudeOutput", () => {
       result: "hello",
       isError: false,
       costUsd: 0.5,
+      deniedTools: [],
     });
+  });
+  test("collects deduplicated permission_denials, ignores bad shapes", () => {
+    const out = ok({
+      permission_denials: [
+        { tool_name: "Bash", tool_input: { command: "plannotator x" } },
+        { tool_name: "Bash", tool_input: {} },
+        { tool_name: "Edit" },
+        null,
+        { foo: 1 },
+      ],
+    }).stdout;
+    expect(parseClaudeOutput(out)?.deniedTools).toEqual(["Bash", "Edit"]);
+    expect(parseClaudeOutput(ok({ permission_denials: "x" }).stdout)?.deniedTools).toEqual([]);
   });
   test("picks the result event of an array", () => {
     const out = JSON.stringify([{ type: "system" }, JSON.parse(ok().stdout)]);

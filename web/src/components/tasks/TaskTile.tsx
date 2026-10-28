@@ -39,6 +39,11 @@ export function TaskTile({
     if (reply.trim() && (await act("POST", "/reply", { message: reply })))
       setReply("");
   };
+  const allowAndResume = async (): Promise<void> => {
+    const tools = [...new Set([...(task.allowedTools ?? []), ...task.deniedTools])];
+    if (await act("PATCH", "", { allowedTools: tools }))
+      await act("POST", "/reply", { message: "continue" });
+  };
   const shown = error ?? task.error;
   const canRelaunch = task.status === "waiting" && !task.sessionId;
 
@@ -78,6 +83,19 @@ export function TaskTile({
         <p className="task-error mono" role="alert">
           {shown}
         </p>
+      )}
+
+      {task.status === "waiting" && task.sessionId && task.deniedTools.length > 0 && (
+        <div className="task-denied">
+          <span className="mono">OUTILS REFUSÉS : {task.deniedTools.join(", ")}</span>
+          <button
+            type="button"
+            className="task-btn"
+            onClick={() => void allowAndResume()}
+          >
+            AUTORISER + RELANCER
+          </button>
+        </div>
       )}
 
       {task.status === "waiting" && task.sessionId && (

@@ -29,6 +29,12 @@ const MAX_TEXT = 20_000;
 /** Statuses a user may set through PATCH (in_progress/waiting are runner-owned). */
 const USER_STATUSES: readonly string[] = ["todo", "done", "archived"];
 
+const validTools = (t: unknown): t is string[] | null =>
+  t === null ||
+  (Array.isArray(t) &&
+    t.length <= MAX_TOOLS &&
+    t.every((x) => typeof x === "string" && TOOL_RE.test(x)));
+
 function hostnameOf(hostHeader: string | undefined): string | null {
   if (!hostHeader) return null;
   try {
@@ -138,12 +144,7 @@ export function registerTaskRoutes(
       !PERMISSION_MODES.includes(permissionMode)
     )
       return c.json({ error: "invalid permissionMode" }, 400);
-    if (
-      tools !== null &&
-      (!Array.isArray(tools) ||
-        tools.length > MAX_TOOLS ||
-        !tools.every((t) => typeof t === "string" && TOOL_RE.test(t)))
-    )
+    if (!validTools(tools))
       return c.json({ error: "invalid allowedTools" }, 400);
     if (model !== null && (typeof model !== "string" || !MODEL_RE.test(model)))
       return c.json({ error: "invalid model" }, 400);
@@ -173,7 +174,17 @@ export function registerTaskRoutes(
   app.patch("/api/tasks/:id", async (c) => {
     const b = await readBody(c);
     if (!b) return c.json({ error: "invalid JSON body" }, 400);
-    const patch: { title?: string; prompt?: string; status?: TaskStatus } = {};
+    const patch: {
+      title?: string;
+      prompt?: string;
+      status?: TaskStatus;
+      allowedTools?: string[] | null;
+    } = {};
+    if (b.allowedTools !== undefined) {
+      if (!validTools(b.allowedTools))
+        return c.json({ error: "invalid allowedTools" }, 400);
+      patch.allowedTools = b.allowedTools;
+    }
     if (b.title !== undefined) {
       const v = str(b.title, MAX_TITLE);
       if (!v) return c.json({ error: "invalid title" }, 400);

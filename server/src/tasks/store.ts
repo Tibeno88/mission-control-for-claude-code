@@ -17,6 +17,8 @@ export interface Task {
   permissionMode: string;
   /** null = all tools (CLI default for the execution context). */
   allowedTools: string[] | null;
+  /** Tools refused during the last run (from `permission_denials`). */
+  deniedTools: string[];
   status: TaskStatus;
   sessionId: string | null;
   lastResult: string | null;
@@ -34,6 +36,7 @@ interface TaskRow {
   model: string | null;
   permission_mode: string;
   allowed_tools: string | null;
+  denied_tools: string | null;
   status: TaskStatus;
   session_id: string | null;
   last_result: string | null;
@@ -51,6 +54,7 @@ const toTask = (r: TaskRow): Task => ({
   model: r.model,
   permissionMode: r.permission_mode,
   allowedTools: r.allowed_tools ? (JSON.parse(r.allowed_tools) as string[]) : null,
+  deniedTools: r.denied_tools ? (JSON.parse(r.denied_tools) as string[]) : [],
   status: r.status,
   sessionId: r.session_id,
   lastResult: r.last_result,
@@ -78,6 +82,8 @@ const COLUMNS = {
   lastResult: "last_result",
   error: "error",
   costUsd: "cost_usd",
+  allowedTools: "allowed_tools",
+  deniedTools: "denied_tools",
 } as const;
 
 export type TaskPatch = Partial<
@@ -128,7 +134,10 @@ export function updateTask(
     (k) => k in COLUMNS,
   );
   const sets = keys.map((k) => `${COLUMNS[k]} = ?`);
-  const values = keys.map((k) => patch[k] ?? null);
+  const values = keys.map((k) => {
+    const v = patch[k] ?? null;
+    return Array.isArray(v) ? (v.length ? JSON.stringify(v) : null) : v;
+  });
   db.prepare(
     `UPDATE tasks SET ${[...sets, "updated_at = ?"].join(", ")} WHERE id = ?`,
   ).run(...values, Date.now(), id);

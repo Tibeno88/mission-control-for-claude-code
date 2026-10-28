@@ -44,6 +44,7 @@ export interface ParsedOutput {
   result: string;
   isError: boolean;
   costUsd: number | null;
+  deniedTools: string[];
 }
 
 /** Parses `claude -p --output-format json` stdout (object, or array of events). */
@@ -61,7 +62,18 @@ export function parseClaudeOutput(stdout: string): ParsedOutput | null {
   if (!data || typeof data !== "object") return null;
   const o = data as Record<string, unknown>;
   if (typeof o.result !== "string") return null;
+  // Defensive: `permission_denials` = [{ tool_name, tool_input }]; unknown shapes are ignored.
+  const denials = Array.isArray(o.permission_denials) ? o.permission_denials : [];
+  const deniedTools = [
+    ...new Set(
+      denials.flatMap((d) => {
+        const n = (d as { tool_name?: unknown } | null)?.tool_name;
+        return typeof n === "string" && n ? [n] : [];
+      }),
+    ),
+  ];
   return {
+    deniedTools,
     sessionId: typeof o.session_id === "string" ? o.session_id : null,
     result: o.result,
     isError: o.is_error === true,
@@ -145,6 +157,7 @@ export class TaskRunner extends EventEmitter {
     const started = updateTask(this.db, t.id, {
       status: "in_progress",
       error: null,
+      deniedTools: [],
     }) as Task;
     const run = this.spawner(this.bin, args, { cwd: t.cwd })
       .then((res) => this.finish(t, res))
@@ -180,6 +193,7 @@ export class TaskRunner extends EventEmitter {
       lastResult: out.result.slice(0, MAX_RESULT_CHARS),
       error: out.isError || res.code ? out.result.slice(0, MAX_ERROR_CHARS) || "erreur claude" : null,
       costUsd: cost,
+      deniedTools: out.deniedTools,
     });
   }
 

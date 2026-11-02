@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { fmtUSD, timeAgo } from "../../lib/format";
+import { isSubmitShortcut } from "../../lib/shortcuts";
 import { taskRequest } from "../../lib/tasksApi";
 import { MODES } from "./TaskForm";
 import type { Task } from "../../types";
+
+// Markdown libs load only when a modal with a response opens.
+const Markdown = lazy(() =>
+  import("./Markdown").then((m) => ({ default: m.Markdown })),
+);
 
 interface TaskTileProps {
   task: Task;
@@ -48,7 +54,10 @@ export function TaskTile({
   const send = async (): Promise<void> => {
     if (!reply.trim()) return;
     // Mode change (ex. plan -> auto) applies to the resumed run.
-    if (mode !== task.permissionMode && !(await act("PATCH", "", { permissionMode: mode })))
+    if (
+      mode !== task.permissionMode &&
+      !(await act("PATCH", "", { permissionMode: mode }))
+    )
       return;
     if (await act("POST", "/reply", { message: reply })) {
       setReply("");
@@ -56,7 +65,9 @@ export function TaskTile({
     }
   };
   const allowAndResume = async (): Promise<void> => {
-    const tools = [...new Set([...(task.allowedTools ?? []), ...task.deniedTools])];
+    const tools = [
+      ...new Set([...(task.allowedTools ?? []), ...task.deniedTools]),
+    ];
     if (await act("PATCH", "", { allowedTools: tools }))
       await act("POST", "/reply", { message: "continue" });
   };
@@ -77,7 +88,11 @@ export function TaskTile({
           {task.plannotatorUrl && (
             <>
               {" · "}
-              <a href={task.plannotatorUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                href={task.plannotatorUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 PLANNOTATOR
               </a>
             </>
@@ -129,17 +144,23 @@ export function TaskTile({
             </header>
             <div className="task-modal-body">
               <h3 className="task-title">{task.title}</h3>
-              <pre className="task-result" tabIndex={0} aria-label="Description">
+              <pre
+                className="task-result"
+                tabIndex={0}
+                aria-label="Description"
+              >
                 {task.prompt}
               </pre>
               {task.lastResult && (
-                <pre
-                  className="task-result"
+                <div
+                  className="task-result markdown"
                   tabIndex={0}
                   aria-label="Dernière réponse de Claude"
                 >
-                  {task.lastResult}
-                </pre>
+                  <Suspense fallback={task.lastResult}>
+                    <Markdown>{task.lastResult}</Markdown>
+                  </Suspense>
+                </div>
               )}
               {shown && (
                 <p className="task-error mono" role="alert">
@@ -147,18 +168,22 @@ export function TaskTile({
                 </p>
               )}
             </div>
-          {task.status === "waiting" && task.sessionId && task.deniedTools.length > 0 && (
-            <div className="task-denied">
-              <span className="mono">OUTILS REFUSÉS : {task.deniedTools.join(", ")}</span>
-              <button
-                type="button"
-                className="task-btn"
-                onClick={() => void allowAndResume()}
-              >
-                AUTORISER + RELANCER
-              </button>
-            </div>
-          )}
+            {task.status === "waiting" &&
+              task.sessionId &&
+              task.deniedTools.length > 0 && (
+                <div className="task-denied">
+                  <span className="mono">
+                    OUTILS REFUSÉS : {task.deniedTools.join(", ")}
+                  </span>
+                  <button
+                    type="button"
+                    className="task-btn"
+                    onClick={() => void allowAndResume()}
+                  >
+                    AUTORISER + RELANCER
+                  </button>
+                </div>
+              )}
             {task.status === "waiting" && task.sessionId && (
               <div className="task-reply task-modal-reply">
                 <label>
@@ -170,7 +195,7 @@ export function TaskTile({
                     autoFocus
                     onChange={(e) => setReply(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      if (isSubmitShortcut(e)) {
                         e.preventDefault();
                         void send();
                       }
@@ -179,7 +204,10 @@ export function TaskTile({
                 </label>
                 <label>
                   <span className="mono">MODE</span>
-                  <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <select
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value)}
+                  >
                     {MODES.map((m) => (
                       <option key={m.value} value={m.value}>
                         {m.label}

@@ -6,6 +6,7 @@ import { HistoryPanels } from "./components/HistoryPanels";
 import type { MainView } from "./components/Header";
 import { MetricsBar } from "./components/MetricsBar";
 import { SessionDetail } from "./components/SessionDetail";
+import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { TaskBoard } from "./components/tasks/TaskBoard";
 import { useNotifications } from "./lib/useNotifications";
 import { useSnapshot } from "./lib/useSnapshot";
@@ -75,6 +76,7 @@ export default function App() {
       {view === "live" && selected && (
         <SessionDetail session={selected} onClose={() => setSelectedId(null)} />
       )}
+      <ShortcutsHelp />
     </div>
   );
 }

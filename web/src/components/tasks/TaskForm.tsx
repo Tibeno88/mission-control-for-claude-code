@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { isSubmitShortcut } from "../../lib/shortcuts";
 import { taskRequest } from "../../lib/tasksApi";
 
 export const MODES = [
@@ -65,11 +66,24 @@ export function TaskForm({ onCreated, onCancel }: TaskFormProps) {
       </label>
       <label>
         <span className="mono">OUTILS AUTORISÉS (vide = tous)</span>
-        <input name="allowedTools" placeholder="Read, Grep, Bash(git status:*)" />
+        <input
+          name="allowedTools"
+          placeholder="Read, Grep, Bash(git status:*)"
+        />
       </label>
       <label className="task-form-prompt">
         <span className="mono">PROMPT</span>
-        <textarea name="prompt" required rows={3} maxLength={20000} />
+        <textarea
+          name="prompt"
+          required
+          rows={3}
+          maxLength={20000}
+          onKeyDown={(e) => {
+            if (!isSubmitShortcut(e)) return;
+            e.preventDefault();
+            e.currentTarget.form?.requestSubmit();
+          }}
+        />
       </label>
       <div className="task-form-actions">
         <button type="submit" className="task-btn primary" disabled={busy}>

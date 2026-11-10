@@ -297,9 +297,10 @@
 /* Modale détail/réponse : 75 % de la fenêtre, centrée */
 .task-modal {
   width: 75vw;
-  height: 75vh;
+  height: auto;
+  min-height: 75vh;
   max-width: none;
-  max-height: none;
+  max-height: 95vh;
   margin: auto;
   padding: var(--space-2);
   border: 1px solid var(--cyan);
@@ -338,6 +339,14 @@
 
 .task-modal .task-result {
   max-height: none;
+}
+
+/* Poignée de glisse : agrandit le bloc réponse, donc la modale (jusqu'à 95vh) */
+.task-modal .task-result.markdown {
+  flex: none;
+  height: 30vh;
+  min-height: 80px;
+  resize: vertical;
 }
 
 .task-modal-reply textarea {

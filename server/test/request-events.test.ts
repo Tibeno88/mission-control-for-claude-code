@@ -132,6 +132,44 @@ describe("TranscriptStore request-event sink", () => {
     expect(subEvent?.usage.outputTokens).toBe(60);
     expect(subEvent?.sessionId).toBe(SESSION_ID);
   });
+
+  test("re-emits a streamed sub-agent message with its final usage as the last event", async () => {
+    const subDir = path.join(root, SLUG, SESSION_ID, "subagents");
+    await fsp.mkdir(subDir, { recursive: true });
+    const agentId = "a2cc20b68be361c4f";
+    const subLine = (outputTokens: number): string =>
+      `${JSON.stringify({
+        type: "assistant",
+        sessionId: SESSION_ID,
+        agentId,
+        isSidechain: true,
+        timestamp: new Date().toISOString(),
+        message: {
+          id: "sub_msg_stream",
+          model: "claude-fable-5",
+          content: [{ type: "text", text: "en cours" }],
+          usage: {
+            input_tokens: 1,
+            output_tokens: outputTokens,
+            cache_read_input_tokens: 0,
+          },
+        },
+      })}\n`;
+    await fsp.writeFile(
+      path.join(subDir, `agent-${agentId}.jsonl`),
+      subLine(6) + subLine(6) + subLine(3544),
+    );
+
+    await store.init();
+
+    const subEvents = events.filter((event) => event.agentId === agentId);
+    // First usage (6), then the changed final usage (3544); the identical repeat is silent.
+    expect(subEvents).toHaveLength(2);
+    const last = subEvents.at(-1)!;
+    expect(last.usage.outputTokens).toBe(3544);
+    expect(last.usage.inputTokens).toBe(1);
+    expect(last.dedupeKey).toBe("sub_msg_stream");
+  });
 });
 
 describe("insertRequestEvent", () => {
@@ -224,5 +262,51 @@ describe("insertRequestEvent", () => {
       .prepare("SELECT COUNT(*) AS n FROM request_events")
       .get() as { n: number };
     expect(count.n).toBe(2);
+  });
+
+  test("upserts a re-emitted request: second usage and cost win, account_id and ts stay frozen", () => {
+    const { lastInsertRowid: accountId } = db
+      .prepare(
+        `INSERT INTO accounts (label, email, organization_name, color) VALUES ('Perso', NULL, NULL, '#112233')`,
+      )
+      .run();
+    db.prepare(
+      `INSERT INTO project_account_map (project_slug, account_id) VALUES (?, ?)`,
+    ).run(SLUG, accountId);
+
+    insertRequestEvent(db, makeEvent());
+    db.prepare(
+      `INSERT INTO project_account_map (project_slug, account_id) VALUES (?, ?)
+       ON CONFLICT(project_slug) DO UPDATE SET account_id = excluded.account_id`,
+    ).run(SLUG, null);
+    insertRequestEvent(
+      db,
+      makeEvent({
+        ts: "2026-08-24T10:05:00.000Z",
+        usage: {
+          inputTokens: 100,
+          outputTokens: 3544,
+          cacheReadTokens: 0,
+          cacheWrite5mTokens: 0,
+          cacheWrite1hTokens: 0,
+        },
+        costUSD: 0.1773,
+        rateInput: 2e-5,
+      }),
+    );
+
+    const rows = db.prepare("SELECT * FROM request_events").all() as Array<{
+      account_id: number;
+      ts: string;
+      output_tokens: number;
+      cost_usd: number;
+      rate_input: number;
+    }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.output_tokens).toBe(3544);
+    expect(rows[0]!.cost_usd).toBeCloseTo(0.1773, 10);
+    expect(rows[0]!.rate_input).toBe(2e-5);
+    expect(rows[0]!.account_id).toBe(Number(accountId));
+    expect(rows[0]!.ts).toBe("2026-08-24T10:00:00.000Z");
   });
 });

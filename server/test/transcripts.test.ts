@@ -205,6 +205,61 @@ describe("TranscriptStore", () => {
     expect(agg.costUSD).toBeGreaterThan(agg.subAgentCostUSD);
   });
 
+  test("keeps only the last streamed usage of a sub-agent message (last line wins)", async () => {
+    await fsp.writeFile(transcript, assistantUsageLine("msg_main", 20));
+
+    const subDir = path.join(root, SLUG, SESSION_ID, "subagents");
+    await fsp.mkdir(subDir, { recursive: true });
+    const agentId = "a2cc20b68be361c4f";
+    const subLine = (outputTokens: number): string =>
+      `${JSON.stringify({
+        type: "assistant",
+        sessionId: SESSION_ID,
+        agentId,
+        attributionAgent: "Explore",
+        isSidechain: true,
+        timestamp: new Date().toISOString(),
+        message: {
+          id: "sub_msg_partial",
+          model: "claude-fable-5",
+          content: [{ type: "text", text: "en cours" }],
+          usage: {
+            input_tokens: 1,
+            output_tokens: outputTokens,
+            cache_read_input_tokens: 0,
+          },
+        },
+      })}\n`;
+    await fsp.writeFile(
+      path.join(subDir, `agent-${agentId}.jsonl`),
+      subLine(6) + subLine(6) + subLine(3544),
+    );
+
+    await store.init();
+
+    const agg = store.sessions()[0]!;
+    const sub = agg.subAgents.get(agentId)!;
+    expect(sub.usage.outputTokens).toBe(3544);
+    expect(sub.usage.inputTokens).toBe(1);
+    expect(agg.usage.outputTokens).toBe(3564); // 20 main + 3544 final sub
+    expect(agg.usage.inputTokens).toBe(101);
+    // Cost of the final sub usage only (fable: 1e-5 input, 5e-5 output).
+    expect(sub.costUSD).toBeCloseTo(1e-5 + 3544 * 5e-5, 10);
+    expect(agg.subAgentCostUSD).toBeCloseTo(sub.costUSD, 10);
+    expect(agg.costUSD).toBeCloseTo(20 * 5e-5 + 100 * 1e-5 + sub.costUSD, 10);
+
+    // Retraction must reach the global buckets too, not only the session.
+    const model = store.byModel().get("claude-fable-5")!;
+    expect(model.outputTokens).toBe(3564);
+    expect(model.costUSD).toBeCloseTo(agg.costUSD, 10);
+    const hours = [...store.hourly().values()];
+    expect(hours.reduce((sum, h) => sum + h.outputTokens, 0)).toBe(3564);
+    expect(hours.reduce((sum, h) => sum + h.costUSD, 0)).toBeCloseTo(
+      agg.costUSD,
+      10,
+    );
+  });
+
   test("flags sessions as missing on unlink and revives them on re-ingest", async () => {
     await fsp.writeFile(transcript, assistantUsageLine("msg_G", 3));
     await store.init();

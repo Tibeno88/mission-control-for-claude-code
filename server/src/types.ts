@@ -28,6 +28,17 @@ export function addUsage(target: UsageTotals, delta: UsageTotals): UsageTotals {
   };
 }
 
+/** Inverse of a usage contribution, used to retract a superseded streamed line. */
+export function negateUsage(usage: UsageTotals): UsageTotals {
+  return {
+    inputTokens: -usage.inputTokens,
+    outputTokens: -usage.outputTokens,
+    cacheReadTokens: -usage.cacheReadTokens,
+    cacheWrite5mTokens: -usage.cacheWrite5mTokens,
+    cacheWrite1hTokens: -usage.cacheWrite1hTokens,
+  };
+}
+
 export type ActivityKind =
   "user" | "assistant" | "tool_use" | "tool_result" | "system";
 

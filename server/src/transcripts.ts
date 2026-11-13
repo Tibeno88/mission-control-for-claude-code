@@ -7,6 +7,7 @@ import type { PricingTable } from "./pricing.js";
 import {
   addUsage,
   emptyUsage,
+  negateUsage,
   type ActivityEvent,
   type SessionRecap,
   type UsageTotals,
@@ -71,6 +72,42 @@ export interface SessionAgg {
   missing: boolean;
 }
 
+/** What one dedupe key contributed last time, so a superseded line can be retracted. */
+interface AppliedUsage {
+  model: string;
+  ts?: string;
+  usage: UsageTotals;
+  costUSD: number;
+}
+
+/** Aggregates a usage contribution lands in: the session, and its sub-agent if any. */
+interface UsageSite {
+  sessionId: string;
+  agentId?: string;
+  projectSlug: string;
+  agg: SessionAgg;
+  sub?: SubAgentAgg;
+}
+
+/** Sub-agent keys are namespaced so they cannot collide with a main-session message id. */
+function seenKeyFor(
+  site: UsageSite,
+  dedupeKey: string | undefined,
+): string | undefined {
+  if (!dedupeKey || !site.sub) return dedupeKey;
+  return `sub:${site.agentId}:${dedupeKey}`;
+}
+
+function sameUsage(a: UsageTotals, b: UsageTotals): boolean {
+  return (
+    a.inputTokens === b.inputTokens &&
+    a.outputTokens === b.outputTokens &&
+    a.cacheReadTokens === b.cacheReadTokens &&
+    a.cacheWrite5mTokens === b.cacheWrite5mTokens &&
+    a.cacheWrite1hTokens === b.cacheWrite1hTokens
+  );
+}
+
 export interface HourStats {
   inputTokens: number;
   outputTokens: number;
@@ -107,7 +144,7 @@ const HOUR_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
 export class TranscriptStore extends EventEmitter {
   private readonly files = new Map<string, FileState>();
   private readonly sessionAggs = new Map<string, SessionAgg>();
-  private readonly seenUsageKeys = new Map<string, Set<string>>();
+  private readonly seenUsageKeys = new Map<string, Map<string, AppliedUsage>>();
   private readonly hourBuckets = new Map<string, HourStats>();
   private readonly modelBuckets = new Map<string, ModelStats>();
   private readonly ingestChains = new Map<string, Promise<void>>();
@@ -432,29 +469,22 @@ export class TranscriptStore extends EventEmitter {
       changed = true;
     }
     // '<synthetic>' is Claude Code's placeholder model for internal error messages — no billable usage.
-    if (
-      entry.usage &&
-      entry.model &&
-      entry.model !== "<synthetic>" &&
-      this.markUsageSeen(entry.sessionId, entry.dedupeKey)
-    ) {
-      const cost = this.pricing.costUSD(entry.model, entry.usage);
-      agg.usage = addUsage(agg.usage, entry.usage);
-      agg.costUSD += cost;
-      agg.models.add(entry.model);
-      this.bumpHour(entry.timestamp, entry.usage, cost);
-      this.bumpModel(entry.model, entry.usage, cost);
-      this.emitRequestEvent(
-        entry.sessionId,
-        undefined,
+    if (entry.usage && entry.model && entry.model !== "<synthetic>") {
+      const site: UsageSite = {
+        sessionId: entry.sessionId,
         projectSlug,
-        entry.model,
-        entry.timestamp,
-        entry.usage,
-        cost,
-        entry.dedupeKey,
-      );
-      changed = true;
+        agg,
+      };
+      if (
+        this.applyUsage(
+          site,
+          entry.model,
+          entry.timestamp,
+          entry.usage,
+          entry.dedupeKey,
+        )
+      )
+        changed = true;
     }
     return changed;
   }
@@ -546,55 +576,97 @@ export class TranscriptStore extends EventEmitter {
       sub.taskPrompt = entry.activity.detail;
       changed = true;
     }
-    if (
-      entry.usage &&
-      entry.model &&
-      entry.model !== "<synthetic>" &&
-      this.markUsageSeen(
-        sessionId,
-        entry.dedupeKey ? `sub:${agentId}:${entry.dedupeKey}` : undefined,
-      )
-    ) {
-      const cost = this.pricing.costUSD(entry.model, entry.usage);
-      sub.usage = addUsage(sub.usage, entry.usage);
-      sub.costUSD += cost;
-      sub.models.add(entry.model);
-      // Roll sub-agent usage into parent session totals and global buckets.
-      agg.usage = addUsage(agg.usage, entry.usage);
-      agg.costUSD += cost;
-      agg.subAgentCostUSD += cost;
-      agg.models.add(entry.model);
-      this.bumpHour(entry.timestamp, entry.usage, cost);
-      this.bumpModel(entry.model, entry.usage, cost);
-      this.emitRequestEvent(
+    if (entry.usage && entry.model && entry.model !== "<synthetic>") {
+      const site: UsageSite = {
         sessionId,
         agentId,
-        state.projectSlug,
-        entry.model,
-        entry.timestamp,
-        entry.usage,
-        cost,
-        entry.dedupeKey,
-      );
-      changed = true;
+        projectSlug: state.projectSlug,
+        agg,
+        sub,
+      };
+      if (
+        this.applyUsage(
+          site,
+          entry.model,
+          entry.timestamp,
+          entry.usage,
+          entry.dedupeKey,
+        )
+      )
+        changed = true;
     }
     return changed;
   }
 
-  /** Streaming writes duplicate usage across lines sharing message.id — count once. */
-  private markUsageSeen(
-    sessionId: string,
+  /**
+   * Streamed lines sharing a message.id repeat it, and the last line carries the
+   * final usage: a known key with different usage retracts its previous
+   * contribution before applying the new one. Returns false when nothing changed.
+   */
+  private applyUsage(
+    site: UsageSite,
+    model: string,
+    ts: string | undefined,
+    usage: UsageTotals,
     dedupeKey: string | undefined,
   ): boolean {
-    if (!dedupeKey) return true;
+    const seen = this.seenUsageFor(site.sessionId);
+    const seenKey = seenKeyFor(site, dedupeKey);
+    const prev = seenKey ? seen.get(seenKey) : undefined;
+    if (prev && prev.model === model && sameUsage(prev.usage, usage))
+      return false;
+    if (prev) this.adjustSinks(site, prev, -1);
+
+    const next: AppliedUsage = {
+      model,
+      ts,
+      usage,
+      costUSD: this.pricing.costUSD(model, usage),
+    };
+    this.adjustSinks(site, next, 1);
+    site.agg.models.add(model);
+    site.sub?.models.add(model);
+    if (seenKey) seen.set(seenKey, next);
+    this.emitRequestEvent(
+      site.sessionId,
+      site.agentId,
+      site.projectSlug,
+      model,
+      ts,
+      usage,
+      next.costUSD,
+      dedupeKey,
+    );
+    return true;
+  }
+
+  /** Adds (sign 1) or retracts (sign -1) one contribution from every sink. */
+  private adjustSinks(
+    site: UsageSite,
+    applied: AppliedUsage,
+    sign: 1 | -1,
+  ): void {
+    const usage = sign === 1 ? applied.usage : negateUsage(applied.usage);
+    const cost = sign * applied.costUSD;
+    const { agg, sub } = site;
+    agg.usage = addUsage(agg.usage, usage);
+    agg.costUSD += cost;
+    if (sub) {
+      sub.usage = addUsage(sub.usage, usage);
+      sub.costUSD += cost;
+      agg.subAgentCostUSD += cost;
+    }
+    this.bumpHour(applied.ts, usage, cost);
+    this.bumpModel(applied.model, usage, cost);
+  }
+
+  private seenUsageFor(sessionId: string): Map<string, AppliedUsage> {
     let seen = this.seenUsageKeys.get(sessionId);
     if (!seen) {
-      seen = new Set();
+      seen = new Map();
       this.seenUsageKeys.set(sessionId, seen);
     }
-    if (seen.has(dedupeKey)) return false;
-    seen.add(dedupeKey);
-    return true;
+    return seen;
   }
 
   private bumpHour(

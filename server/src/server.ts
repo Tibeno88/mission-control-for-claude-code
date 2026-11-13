@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import type { Server as HttpServer } from "node:http";
+import type { Server as HttpServer, IncomingMessage } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -13,6 +13,7 @@ import { BackupScheduler } from "./backup/scheduler.js";
 import { BackupService } from "./backup/service.js";
 import type { BackupStatusEvent } from "./backup/types.js";
 import { loadConfig } from "./config.js";
+import { localRequestError, localRequestGuard } from "./local-guard.js";
 import { attachPlannotator, buildFleet, buildMetrics } from "./metrics.js";
 import { PlannotatorRegistry } from "./plannotator.js";
 import { PricingTable } from "./pricing.js";
@@ -132,6 +133,8 @@ async function main(): Promise<void> {
   };
 
   const app = new Hono();
+  // Registered before every route: Hono runs middleware in registration order.
+  app.use("/api/*", localRequestGuard);
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.get("/api/snapshot", (c) => c.json(snapshot()));
   app.get("/api/fleet", (c) =>
@@ -190,6 +193,9 @@ async function main(): Promise<void> {
   const wss = new WebSocketServer({
     server: server as HttpServer,
     path: "/ws",
+    // WebSockets bypass CORS: without this, any open web page could read snapshots.
+    verifyClient: (info: { origin?: string; req: IncomingMessage }) =>
+      localRequestError(info.req.headers.host, info.origin) === null,
   });
   const broadcast = (): void => {
     if (wss.clients.size === 0) return;

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type Database from "better-sqlite3";
 import type { Context, Hono, Next } from "hono";
+import { localRequestError } from "../local-guard.js";
 import {
   TaskConflictError,
   TaskNotFoundError,
@@ -22,7 +23,6 @@ const PERMISSION_MODES: readonly string[] = ["manual", "acceptEdits", "auto", "p
 // One tool spec, e.g. `Read`, `Bash(git status:*)`, `mcp__srv__tool`; no comma (list separator), no leading dash.
 const TOOL_RE = /^[A-Za-z_][A-Za-z0-9_ .:*/()@=\\[\]-]{0,199}$/;
 const MAX_TOOLS = 50;
-const LOCAL_HOSTNAMES = new Set(["127.0.0.1", "localhost"]);
 const MAX_TITLE = 200;
 const MAX_TEXT = 20_000;
 
@@ -35,15 +35,6 @@ const validTools = (t: unknown): t is string[] | null =>
     t.length <= MAX_TOOLS &&
     t.every((x) => typeof x === "string" && TOOL_RE.test(x)));
 
-function hostnameOf(hostHeader: string | undefined): string | null {
-  if (!hostHeader) return null;
-  try {
-    return new URL(`http://${hostHeader}`).hostname;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Anti-CSRF / DNS-rebinding guard for routes that end up running `claude`:
  * JSON content type (forces a CORS preflight cross-origin), local Host, and an
@@ -51,20 +42,8 @@ function hostnameOf(hostHeader: string | undefined): string | null {
  */
 export async function localMutationGuard(c: Context, next: Next) {
   if (c.req.method === "GET" || c.req.method === "HEAD") return next();
-  const host = c.req.header("host");
-  if (!LOCAL_HOSTNAMES.has(hostnameOf(host) ?? ""))
-    return c.json({ error: "forbidden host" }, 403);
-  const origin = c.req.header("origin");
-  if (origin !== undefined) {
-    let o: URL | undefined;
-    try {
-      o = new URL(origin);
-    } catch {
-      o = undefined;
-    }
-    if (!o || !LOCAL_HOSTNAMES.has(o.hostname) || o.host !== host)
-      return c.json({ error: "forbidden origin" }, 403);
-  }
+  const error = localRequestError(c.req.header("host"), c.req.header("origin"));
+  if (error) return c.json({ error }, 403);
   const ct = c.req.header("content-type") ?? "";
   if (!/^application\/json\s*(;|$)/i.test(ct))
     return c.json({ error: "content-type must be application/json" }, 415);

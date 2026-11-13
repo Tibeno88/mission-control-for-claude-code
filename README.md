@@ -214,10 +214,9 @@ plus un état `ARCHIVED` masqué par défaut (case « afficher archivées », bo
   `WAITING` avec l'erreur « interrompue par redémarrage du serveur ».
 - Les tâches sont persistées dans la table SQLite `tasks`. Binaire `claude`
   résolu via le `PATH`.
-- Sécurité : ces routes exécutent `claude`. Les mutations exigent
-  `Content-Type: application/json`, un `Host` local (`127.0.0.1` / `localhost`)
-  et, si présent, un `Origin` local identique au `Host` (anti-CSRF, anti-DNS
-  rebinding). Entrées validées (cwd, mode, modèle, tailles, id).
+- Sécurité : ces routes exécutent `claude`. La règle `Host`/`Origin` locaux
+  s'applique à toute l'API et au WebSocket ; les mutations exigent en plus
+  `Content-Type: application/json`. Entrées validées (cwd, mode, modèle, tailles, id).
 
 ### Onglet DASHBOARD
 
@@ -416,6 +415,12 @@ toutes les heures), `retentionDays` (défaut `0` = rétention infinie),
 
 Toutes les routes sont servies sur `http://127.0.0.1:$CMC_PORT`.
 
+Toutes les routes `/api/*` (GET comme mutations) et le WebSocket `/ws` exigent un
+`Host` local (`127.0.0.1` ou `localhost`, port quelconque). Si un `Origin` est présent,
+il doit être local et identique au `Host`. Sinon : `403` avec `{ "error": "forbidden host" }`
+ou `{ "error": "forbidden origin" }` (handshake refusé pour `/ws`). Les clients sans
+`Origin` (curl, alias `cmc-*`) fonctionnent tant qu'ils visent `127.0.0.1` ou `localhost`.
+
 ### Supervision live
 
 | Méthode | Route                        | Réponse                                                            |
@@ -458,8 +463,8 @@ invalide renvoie `400`.
 | `POST`  | `/api/tasks/:id/reply`   | `{ message }` : reprend la session. `409` si la tâche n'est pas `waiting`    |
 | `PATCH` | `/api/tasks/:id`         | `title`, `prompt`, `allowedTools` (même validation qu'à la création), `status` ∈ `todo` (restauration), `done`, `archived` |
 
-Mutations : `Content-Type: application/json` obligatoire, `Host`/`Origin` locaux
-(`403`/`415` sinon).
+Mutations : en plus de la règle `Host`/`Origin` générale ci-dessus, `Content-Type: application/json`
+est obligatoire (`415` sinon).
 
 ### WebSocket
 
@@ -537,6 +542,11 @@ du processus.
 - L'app est en **lecture seule** sur `~/.claude/` : elle n'écrit jamais dans les
   données de Claude Code. Le retrait d'une session de la grille est un état en
   mémoire, pas une suppression.
+- Toutes les routes `/api/*` et `/ws` rejettent un `Host` ou un `Origin` non local.
+  Cela bloque le DNS rebinding (une page web lisant l'API via un domaine rebindé) et le
+  cross-site WebSocket hijacking (une page ouverte dans le même navigateur lisant le
+  snapshot live, les WebSockets échappant au CORS). Ce n'est pas une authentification :
+  n'exposez toujours pas le port.
 
 ## Dépannage
 
@@ -551,6 +561,7 @@ du processus.
 | Échec d'installation de `better-sqlite3` | Pas de binaire pré-compilé pour la plateforme             | `sudo apt install build-essential python3` puis `yarn install`                |
 | Compteur Plannotator toujours à zéro     | Plannotator absent, ou répertoire de données non standard | Optionnel par nature ; sinon définir `CMC_PLANNOTATOR_DIR`                    |
 | Coûts qui semblent faux                  | Table de pricing non rafraîchie (hors ligne au démarrage) | Les logs indiquent `[pricing] refreshed N claude models` ; sinon table locale |
+| `403 forbidden host` / `forbidden origin` | Accès via un autre nom d'hôte que `127.0.0.1`/`localhost` (alias, IP, proxy) | Ouvrir `http://127.0.0.1:4517` (ou `:5173` en dev)                            |
 
 ## Tests & qualité
 

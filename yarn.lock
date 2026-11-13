@@ -16,7 +16,7 @@ __metadata:
     "@types/ws": "npm:8.18.1"
     better-sqlite3: "npm:13.0.3"
     chokidar: "npm:5.0.0"
-    hono: "npm:4.12.30"
+    hono: "npm:4.13.16"
     node-cron: "npm:4.6.0"
     tsx: "npm:4.23.1"
     typescript: "npm:5.9.3"
@@ -1236,10 +1236,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hono@npm:4.12.30":
-  version: 4.12.30
-  resolution: "hono@npm:4.12.30"
-  checksum: 10c0/3262ba275e44dc9515032e15aa6a88e8915bc65f5a4b9a1bc538f3ac2bdd19aa2235e6e2fdd6af3b0e5551c162856c3dccd4f353e721c43fe81e5f3268573dde
+"hono@npm:4.13.16":
+  version: 4.13.16
+  resolution: "hono@npm:4.13.16"
+  checksum: 10c0/8a06f1d49bb98fd38a2bc4d5c1f5410b4c5a9fbe2dff85fbad2191a1b55fde93b64b63b2deba97d3e241630aedd800c57d1f4dc539e5f93ece81809fa63cbed9
   languageName: node
   linkType: hard
 

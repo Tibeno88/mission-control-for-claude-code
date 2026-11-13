@@ -9,7 +9,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@cmc/server@workspace:server"
   dependencies:
-    "@hono/node-server": "npm:2.0.8"
+    "@hono/node-server": "npm:2.1.6"
     "@types/better-sqlite3": "npm:9.6.0"
     "@types/node": "npm:26.1.1"
     "@types/node-cron": "npm:3.0.11"
@@ -251,12 +251,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hono/node-server@npm:2.0.8":
-  version: 2.0.8
-  resolution: "@hono/node-server@npm:2.0.8"
+"@hono/node-server@npm:2.1.6":
+  version: 2.1.6
+  resolution: "@hono/node-server@npm:2.1.6"
   peerDependencies:
-    hono: ^4
-  checksum: 10c0/2284799e7ea8c3ea18dcd29fbc523792d7e42768f11dff8a937ce2e4ec965785552da4e9649354b00079243946bd9f65d23b8d9b923cef4984175e507398bb72
+    hono: ^4 || ^5.0.0-0
+  checksum: 10c0/bb57a4e00f193b37f1e7c8a4b8206914ab3f6073d8e7da7ca4b005f0205d89ef9cd0bdb783a4b59869a4c9211f1567f3e0717f31e92704ed7b1801a33d3252d3
   languageName: node
   linkType: hard
 

@@ -142,6 +142,14 @@ export function SessionCard({
             })()}
           </span>
         )}
+        {session.advisorCalls > 0 && (
+          <span
+            className="subagent-badge"
+            title={`${session.advisorCalls} appel(s) advisor`}
+          >
+            ◆ {session.advisorCalls}
+          </span>
+        )}
         {session.plannotator && session.plannotator.length > 0 && (
           <PlannotatorBadge sessions={session.plannotator} />
         )}

@@ -74,6 +74,7 @@ function mergeFleet(
     lastActivity: agg?.lastActivity,
     recap: agg?.recap,
     prompts: agg?.prompts ?? 0,
+    advisorCalls: agg?.advisorCalls ?? 0,
     usage: agg?.usage ?? emptyUsage(),
     costUSD: agg?.costUSD ?? 0,
     subAgents: agg ? [...agg.subAgents.values()].map(toSubAgentSummary) : [],

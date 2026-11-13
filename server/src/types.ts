@@ -110,6 +110,8 @@ export interface FleetSession {
   /** Latest recap, dropped once a newer prompt starts. */
   recap?: SessionRecap;
   prompts: number;
+  /** Advisor tool calls in this session, sub-agents included. */
+  advisorCalls: number;
   usage: UsageTotals;
   costUSD: number;
   /** Per-sub-agent breakdown (usage/cost already included in `usage`/`costUSD`). */

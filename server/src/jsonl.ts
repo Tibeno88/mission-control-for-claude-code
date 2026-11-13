@@ -1,4 +1,14 @@
-import type { ActivityEvent, UsageTotals } from "./types.js";
+import {
+  addUsage,
+  emptyUsage,
+  type ActivityEvent,
+  type UsageTotals,
+} from "./types.js";
+
+export interface AdvisorUsage {
+  model: string;
+  usage: UsageTotals;
+}
 
 export interface ParsedEntry {
   type: string;
@@ -14,7 +24,12 @@ export interface ParsedEntry {
   /** Sub-agent type as attributed by Claude Code (e.g. "Explore", "code-reviewer"). */
   attributionAgent?: string;
   model?: string;
+  /** Executor usage only: advisor iterations are reported separately in `advisor`. */
   usage?: UsageTotals;
+  /** Advisor model calls made inside this message (usage.iterations of type advisor_message). */
+  advisor?: AdvisorUsage[];
+  /** Advisor tool invocations (server_tool_use blocks) on this line. */
+  advisorCalls?: number;
   dedupeKey?: string;
   activity?: ActivityEvent;
   /** Claude's own end-of-turn recap sentence (system/away_summary). */
@@ -69,9 +84,7 @@ function summarizeToolInput(input: unknown, full: boolean): string | undefined {
   return undefined;
 }
 
-function parseUsage(rawUsage: unknown): UsageTotals | undefined {
-  if (!rawUsage || typeof rawUsage !== "object") return undefined;
-  const usage = rawUsage as Record<string, unknown>;
+function usageFields(usage: Record<string, unknown>): UsageTotals {
   const cacheCreation = (usage.cache_creation ?? {}) as Record<string, unknown>;
   const hasSplit =
     "ephemeral_5m_input_tokens" in cacheCreation ||
@@ -85,6 +98,60 @@ function parseUsage(rawUsage: unknown): UsageTotals | undefined {
       : num(usage.cache_creation_input_tokens),
     cacheWrite1hTokens: num(cacheCreation.ephemeral_1h_input_tokens),
   };
+}
+
+/** Non-empty usage.iterations, or undefined when the message has none. */
+function iterationsOf(
+  usage: Record<string, unknown>,
+): Record<string, unknown>[] | undefined {
+  const iterations = Array.isArray(usage.iterations)
+    ? usage.iterations.filter(
+        (item): item is Record<string, unknown> =>
+          !!item && typeof item === "object",
+      )
+    : [];
+  return iterations.length > 0 ? iterations : undefined;
+}
+
+/**
+ * Executor usage. The top-level fields exclude advisor tokens and can carry a
+ * wrong cache split, so when iterations exist they are summed instead.
+ */
+function parseUsage(rawUsage: unknown): UsageTotals | undefined {
+  if (!rawUsage || typeof rawUsage !== "object") return undefined;
+  const usage = rawUsage as Record<string, unknown>;
+  const iterations = iterationsOf(usage);
+  if (!iterations) return usageFields(usage);
+  return iterations
+    .filter((item) => item.type !== "advisor_message")
+    .map(usageFields)
+    .reduce(addUsage, emptyUsage());
+}
+
+/** Advisor iterations; a missing iteration model falls back to the message model. */
+function parseAdvisor(
+  rawUsage: unknown,
+  messageModel: string | undefined,
+): AdvisorUsage[] | undefined {
+  if (!rawUsage || typeof rawUsage !== "object") return undefined;
+  const advisors = (iterationsOf(rawUsage as Record<string, unknown>) ?? [])
+    .filter((item) => item.type === "advisor_message")
+    .flatMap((item) => {
+      const model = str(item.model) ?? messageModel;
+      return model ? [{ model, usage: usageFields(item) }] : [];
+    });
+  return advisors.length > 0 ? advisors : undefined;
+}
+
+/** Advisor tool calls are server_tool_use blocks; the count comes from blocks, not iterations. */
+function countAdvisorCalls(content: unknown): number | undefined {
+  if (!Array.isArray(content)) return undefined;
+  const count = content.filter((block) => {
+    if (!block || typeof block !== "object") return false;
+    const typed = block as Record<string, unknown>;
+    return typed.type === "server_tool_use" && typed.name === "advisor";
+  }).length;
+  return count > 0 ? count : undefined;
 }
 
 function assistantActivity(
@@ -190,6 +257,8 @@ export function parseLine(
     const message = record.message as Record<string, unknown> | undefined;
     entry.model = str(message?.model);
     entry.usage = parseUsage(message?.usage);
+    entry.advisor = parseAdvisor(message?.usage, entry.model);
+    entry.advisorCalls = countAdvisorCalls(message?.content);
     if (entry.usage) {
       entry.dedupeKey =
         str(message?.id) ?? str(record.requestId) ?? str(record.uuid);

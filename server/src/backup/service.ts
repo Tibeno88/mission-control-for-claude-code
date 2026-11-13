@@ -64,8 +64,8 @@ function insertSnapshot(
         cache_write_5m_tokens, cache_write_1h_tokens,
         cost_usd, prompts, sub_agent_cost_usd, first_ts, last_ts,
         rate_input, rate_output, rate_cache_read, rate_cache_write_5m,
-        rate_cache_write_1h, pricing_source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        rate_cache_write_1h, pricing_source, advisor_calls, advisor_cost_usd)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     runId,
     session.sessionId,
@@ -91,6 +91,8 @@ function insertSnapshot(
     rates?.cacheWrite5m ?? null,
     rates?.cacheWrite1h ?? null,
     pricingSource,
+    session.advisorCalls,
+    session.advisorCostUSD,
   );
 }
 

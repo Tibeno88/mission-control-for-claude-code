@@ -102,6 +102,7 @@ const MIGRATIONS: readonly string[] = [
   // preserved as the denominator so avg cost/tokens per request stay exact
   // after compaction. NULL project_slug means "all projects" for that bucket.
   // Upserted on (bucket, model, project_slug) so compaction runs are re-entrant.
+  // shortcut: rollups do not carry kind (advisor vs message); add it if compaction gets wired up.
   `CREATE TABLE IF NOT EXISTS request_rollups (
     bucket TEXT NOT NULL,
     model TEXT NOT NULL,
@@ -197,6 +198,21 @@ const COLUMN_MIGRATIONS: ReadonlyArray<{
     table: "session_snapshots",
     column: "pricing_source",
     ddl: "ALTER TABLE session_snapshots ADD COLUMN pricing_source TEXT",
+  },
+  {
+    table: "request_events",
+    column: "kind",
+    ddl: "ALTER TABLE request_events ADD COLUMN kind TEXT NOT NULL DEFAULT 'message'",
+  },
+  {
+    table: "session_snapshots",
+    column: "advisor_calls",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN advisor_calls INTEGER NOT NULL DEFAULT 0",
+  },
+  {
+    table: "session_snapshots",
+    column: "advisor_cost_usd",
+    ddl: "ALTER TABLE session_snapshots ADD COLUMN advisor_cost_usd REAL NOT NULL DEFAULT 0",
   },
 ];
 

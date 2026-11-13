@@ -3,13 +3,111 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { PricingTable } from "../src/pricing.js";
-import { TranscriptStore } from "../src/transcripts.js";
+import { TranscriptStore, type RequestEvent } from "../src/transcripts.js";
 
 const SESSION_ID = "11111111-2222-3333-4444-555555555555";
 const SLUG = "-home-user-projects-demo";
 
+const EXECUTOR_MODEL = "claude-sonnet-5-5";
+const ADVISOR_MODEL = "claude-opus-5-5";
+const pricing = new PricingTable();
+// Executor = top-level fields minus the advisor iteration, summed over iterations.
+const EXECUTOR_USAGE = {
+  inputTokens: 4,
+  outputTokens: 300,
+  cacheReadTokens: 2000,
+  cacheWrite5mTokens: 50,
+  cacheWrite1hTokens: 100,
+};
+const ADVISOR_USAGE = {
+  inputTokens: 5000,
+  outputTokens: 400,
+  cacheReadTokens: 0,
+  cacheWrite5mTokens: 0,
+  cacheWrite1hTokens: 0,
+};
+/** Final usage of an advisor-bearing message, as every line of that message carries it. */
+const ADVISOR_MESSAGE_USAGE = {
+  input_tokens: 4,
+  output_tokens: 300,
+  cache_read_input_tokens: 2000,
+  cache_creation_input_tokens: 150,
+  cache_creation: {
+    ephemeral_5m_input_tokens: 0,
+    ephemeral_1h_input_tokens: 100,
+  },
+  iterations: [
+    {
+      type: "message",
+      input_tokens: 2,
+      output_tokens: 100,
+      cache_read_input_tokens: 1000,
+      cache_creation_input_tokens: 100,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 0,
+        ephemeral_1h_input_tokens: 100,
+      },
+    },
+    {
+      type: "advisor_message",
+      model: ADVISOR_MODEL,
+      input_tokens: 5000,
+      output_tokens: 400,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 0,
+        ephemeral_1h_input_tokens: 0,
+      },
+    },
+    {
+      type: "message",
+      input_tokens: 2,
+      output_tokens: 200,
+      cache_read_input_tokens: 1000,
+      cache_creation_input_tokens: 50,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 50,
+        ephemeral_1h_input_tokens: 0,
+      },
+    },
+  ],
+};
+const ADVISOR_BLOCK = {
+  type: "server_tool_use",
+  id: "srvtoolu_1",
+  name: "advisor",
+  input: {},
+};
+const ADVISOR_RESULT_BLOCK = {
+  type: "advisor_tool_result",
+  tool_use_id: "srvtoolu_1",
+  content: "conseil",
+};
+
 function line(type: string, extra: Record<string, unknown>): string {
   return `${JSON.stringify({ type, sessionId: SESSION_ID, timestamp: new Date().toISOString(), ...extra })}\n`;
+}
+
+/** One streamed line of an assistant message: real transcripts repeat message.id per content block. */
+function messageLine(
+  messageId: string,
+  content: unknown[],
+  usage: unknown,
+  extra: Record<string, unknown> = {},
+): string {
+  return line("assistant", {
+    ...extra,
+    message: { id: messageId, model: EXECUTOR_MODEL, content, usage },
+  });
+}
+
+/** Sum of the last event per request, as request_events upserts them (a superseded line is replaced). */
+function latestCostPerRequest(events: RequestEvent[]): number {
+  const latest = new Map<string, number>();
+  for (const event of events)
+    latest.set(`${event.agentId ?? ""}|${event.dedupeKey}`, event.costUSD);
+  return [...latest.values()].reduce((sum, cost) => sum + cost, 0);
 }
 
 function assistantUsageLine(messageId: string, outputTokens: number): string {
@@ -258,6 +356,118 @@ describe("TranscriptStore", () => {
       agg.costUSD,
       10,
     );
+  });
+
+  test("prices advisor iterations at the advisor model rates, apart from the executor", async () => {
+    const events: RequestEvent[] = [];
+    store = new TranscriptStore(
+      root,
+      pricing,
+      Date.now() - 86_400_000,
+      (event) => events.push(event),
+    );
+    await fsp.writeFile(
+      transcript,
+      messageLine(
+        "msg_adv",
+        [{ type: "thinking", thinking: "réflexion" }],
+        ADVISOR_MESSAGE_USAGE,
+      ) +
+        messageLine("msg_adv", [ADVISOR_BLOCK], ADVISOR_MESSAGE_USAGE) +
+        messageLine("msg_adv", [ADVISOR_RESULT_BLOCK], ADVISOR_MESSAGE_USAGE) +
+        messageLine(
+          "msg_adv",
+          [{ type: "text", text: "fini" }],
+          ADVISOR_MESSAGE_USAGE,
+        ),
+    );
+    await store.init();
+
+    const agg = store.sessions()[0]!;
+    const executorCost = pricing.costUSD(EXECUTOR_MODEL, EXECUTOR_USAGE);
+    const advisorCost = pricing.costUSD(ADVISOR_MODEL, ADVISOR_USAGE);
+    expect(agg.costUSD).toBeCloseTo(executorCost + advisorCost, 10);
+    expect(agg.advisorCalls).toBe(1);
+    expect(agg.advisorCostUSD).toBeCloseTo(advisorCost, 10);
+    expect(agg.usage.outputTokens).toBe(700); // 300 executor + 400 advisor
+    expect([...agg.models].sort()).toEqual(
+      [ADVISOR_MODEL, EXECUTOR_MODEL].sort(),
+    );
+
+    expect(events.map((event) => event.kind).sort()).toEqual([
+      "advisor",
+      "message",
+    ]);
+    expect(events.find((event) => event.kind === "advisor")).toMatchObject({
+      model: ADVISOR_MODEL,
+      dedupeKey: "msg_adv#advisor0",
+    });
+    expect(latestCostPerRequest(events)).toBeCloseTo(agg.costUSD, 10);
+  });
+
+  test("counts sub-agent advisor cost once the final streamed line lands", async () => {
+    const events: RequestEvent[] = [];
+    store = new TranscriptStore(
+      root,
+      pricing,
+      Date.now() - 86_400_000,
+      (event) => events.push(event),
+    );
+    await fsp.writeFile(transcript, assistantUsageLine("msg_main", 20));
+
+    const subDir = path.join(root, SLUG, SESSION_ID, "subagents");
+    await fsp.mkdir(subDir, { recursive: true });
+    const agentId = "a3f0adv1c0de00001";
+    const subFields = {
+      agentId,
+      attributionAgent: "Explore",
+      isSidechain: true,
+    };
+    const partialUsage = {
+      input_tokens: 1,
+      output_tokens: 6,
+      cache_read_input_tokens: 0,
+    };
+    await fsp.writeFile(
+      path.join(subDir, `agent-${agentId}.jsonl`),
+      messageLine(
+        "sub_adv",
+        [{ type: "text", text: "en cours" }],
+        partialUsage,
+        subFields,
+      ) +
+        messageLine("sub_adv", [ADVISOR_BLOCK], partialUsage, subFields) +
+        messageLine(
+          "sub_adv",
+          [{ type: "text", text: "fini" }],
+          ADVISOR_MESSAGE_USAGE,
+          subFields,
+        ),
+    );
+    await store.init();
+
+    const agg = store.sessions()[0]!;
+    const sub = agg.subAgents.get(agentId)!;
+    const executorCost = pricing.costUSD(EXECUTOR_MODEL, EXECUTOR_USAGE);
+    const advisorCost = pricing.costUSD(ADVISOR_MODEL, ADVISOR_USAGE);
+    const mainCost = pricing.costUSD("claude-fable-5", {
+      inputTokens: 100,
+      outputTokens: 20,
+      cacheReadTokens: 0,
+      cacheWrite5mTokens: 0,
+      cacheWrite1hTokens: 0,
+    });
+    expect(sub.models.has(ADVISOR_MODEL)).toBe(true);
+    expect(sub.costUSD).toBeCloseTo(executorCost + advisorCost, 10);
+    expect(agg.subAgentCostUSD).toBeCloseTo(sub.costUSD, 10);
+    expect(agg.advisorCalls).toBe(1);
+    expect(agg.advisorCostUSD).toBeCloseTo(advisorCost, 10);
+    expect(agg.costUSD).toBeCloseTo(mainCost + sub.costUSD, 10);
+
+    const advisorEvents = events.filter((event) => event.kind === "advisor");
+    expect(advisorEvents).toHaveLength(1);
+    expect(advisorEvents[0]?.costUSD).toBeCloseTo(advisorCost, 10);
+    expect(latestCostPerRequest(events)).toBeCloseTo(agg.costUSD, 10);
   });
 
   test("flags sessions as missing on unlink and revives them on re-ingest", async () => {

@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import chokidar, { type FSWatcher } from "chokidar";
-import { parseLine } from "./jsonl.js";
+import { parseLine, type ParsedEntry } from "./jsonl.js";
 import type { PricingTable } from "./pricing.js";
 import {
   addUsage,
@@ -20,6 +20,9 @@ import {
  * when the source line carries no message id, so it can still satisfy a
  * NOT NULL/UNIQUE constraint downstream.
  */
+/** "advisor": tokens of a model called by the executor through the advisor tool. */
+export type UsageKind = "message" | "advisor";
+
 export interface RequestEvent {
   sessionId: string;
   agentId?: string;
@@ -35,6 +38,7 @@ export interface RequestEvent {
   rateCacheWrite1h?: number;
   pricingSource?: string;
   dedupeKey: string;
+  kind: UsageKind;
 }
 
 /** Running aggregate for one sub-agent transcript within a session. */
@@ -68,6 +72,10 @@ export interface SessionAgg {
   subAgents: Map<string, SubAgentAgg>;
   /** Portion of `costUSD` contributed by sub-agents. */
   subAgentCostUSD: number;
+  /** Advisor tool calls (counted per content block, not per usage key). */
+  advisorCalls: number;
+  /** Portion of `costUSD` contributed by advisor models. */
+  advisorCostUSD: number;
   /** Transcript file no longer exists on disk (aggregates kept in memory). */
   missing: boolean;
 }
@@ -78,6 +86,7 @@ interface AppliedUsage {
   ts?: string;
   usage: UsageTotals;
   costUSD: number;
+  kind: UsageKind;
 }
 
 /** Aggregates a usage contribution lands in: the session, and its sub-agent if any. */
@@ -182,9 +191,10 @@ export class TranscriptStore extends EventEmitter {
     usage: UsageTotals,
     costUSD: number,
     dedupeKey: string | undefined,
+    kind: UsageKind,
   ): void {
     if (!this.onRequest) return;
-    const pricing = this.pricing.resolve(model);
+    const rates = this.pricing.ratesFor(model, usage);
     this.onRequest({
       sessionId,
       agentId,
@@ -193,13 +203,14 @@ export class TranscriptStore extends EventEmitter {
       ts: ts ?? new Date().toISOString(),
       usage,
       costUSD,
-      rateInput: pricing?.input,
-      rateOutput: pricing?.output,
-      rateCacheRead: pricing?.cacheRead,
-      rateCacheWrite5m: pricing?.cacheWrite5m,
-      rateCacheWrite1h: pricing?.cacheWrite1h,
+      rateInput: rates?.input,
+      rateOutput: rates?.output,
+      rateCacheRead: rates?.cacheRead,
+      rateCacheWrite5m: rates?.cacheWrite5m,
+      rateCacheWrite1h: rates?.cacheWrite1h,
       pricingSource: this.pricing.pricingSource(model),
       dedupeKey: this.resolveDedupeKey(sessionId, agentId, dedupeKey),
+      kind,
     });
   }
 
@@ -468,24 +479,50 @@ export class TranscriptStore extends EventEmitter {
       agg.recap = { ts: entry.timestamp ?? "", text: entry.recap };
       changed = true;
     }
+    const site: UsageSite = { sessionId: entry.sessionId, projectSlug, agg };
+    if (this.applyLineUsage(site, entry)) changed = true;
+    return changed;
+  }
+
+  /**
+   * Usage of one transcript line: the executor usage, then each advisor call.
+   * Advisor tool calls are counted per block, outside the usage dedupe.
+   */
+  private applyLineUsage(site: UsageSite, entry: ParsedEntry): boolean {
+    const advisorCalls = entry.advisorCalls ?? 0;
+    site.agg.advisorCalls += advisorCalls;
+    let changed = advisorCalls > 0;
     // '<synthetic>' is Claude Code's placeholder model for internal error messages — no billable usage.
-    if (entry.usage && entry.model && entry.model !== "<synthetic>") {
-      const site: UsageSite = {
-        sessionId: entry.sessionId,
-        projectSlug,
-        agg,
-      };
+    if (!entry.usage || !entry.model || entry.model === "<synthetic>")
+      return changed;
+    if (
+      this.applyUsage(
+        site,
+        entry.model,
+        entry.timestamp,
+        entry.usage,
+        entry.dedupeKey,
+        "message",
+      )
+    )
+      changed = true;
+    entry.advisor?.forEach((advisor, index) => {
+      const key =
+        entry.dedupeKey === undefined
+          ? undefined
+          : `${entry.dedupeKey}#advisor${index}`;
       if (
         this.applyUsage(
           site,
-          entry.model,
+          advisor.model,
           entry.timestamp,
-          entry.usage,
-          entry.dedupeKey,
+          advisor.usage,
+          key,
+          "advisor",
         )
       )
         changed = true;
-    }
+    });
     return changed;
   }
 
@@ -504,6 +541,8 @@ export class TranscriptStore extends EventEmitter {
       costUSD: 0,
       subAgents: new Map(),
       subAgentCostUSD: 0,
+      advisorCalls: 0,
+      advisorCostUSD: 0,
       missing: false,
     };
   }
@@ -576,25 +615,14 @@ export class TranscriptStore extends EventEmitter {
       sub.taskPrompt = entry.activity.detail;
       changed = true;
     }
-    if (entry.usage && entry.model && entry.model !== "<synthetic>") {
-      const site: UsageSite = {
-        sessionId,
-        agentId,
-        projectSlug: state.projectSlug,
-        agg,
-        sub,
-      };
-      if (
-        this.applyUsage(
-          site,
-          entry.model,
-          entry.timestamp,
-          entry.usage,
-          entry.dedupeKey,
-        )
-      )
-        changed = true;
-    }
+    const site: UsageSite = {
+      sessionId,
+      agentId,
+      projectSlug: state.projectSlug,
+      agg,
+      sub,
+    };
+    if (this.applyLineUsage(site, entry)) changed = true;
     return changed;
   }
 
@@ -609,6 +637,7 @@ export class TranscriptStore extends EventEmitter {
     ts: string | undefined,
     usage: UsageTotals,
     dedupeKey: string | undefined,
+    kind: UsageKind,
   ): boolean {
     const seen = this.seenUsageFor(site.sessionId);
     const seenKey = seenKeyFor(site, dedupeKey);
@@ -622,6 +651,7 @@ export class TranscriptStore extends EventEmitter {
       ts,
       usage,
       costUSD: this.pricing.costUSD(model, usage),
+      kind,
     };
     this.adjustSinks(site, next, 1);
     site.agg.models.add(model);
@@ -636,6 +666,7 @@ export class TranscriptStore extends EventEmitter {
       usage,
       next.costUSD,
       dedupeKey,
+      kind,
     );
     return true;
   }
@@ -656,6 +687,7 @@ export class TranscriptStore extends EventEmitter {
       sub.costUSD += cost;
       agg.subAgentCostUSD += cost;
     }
+    if (applied.kind === "advisor") agg.advisorCostUSD += cost;
     this.bumpHour(applied.ts, usage, cost);
     this.bumpModel(applied.model, usage, cost);
   }

@@ -49,6 +49,7 @@ function fleetSession(sessionId: string): FleetSession {
     status: "busy",
     models: [],
     prompts: 0,
+    advisorCalls: 0,
     usage: emptyUsage(),
     costUSD: 0,
     subAgents: [],

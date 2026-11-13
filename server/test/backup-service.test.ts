@@ -37,6 +37,8 @@ function makeSession(
     costUSD: 0.5,
     subAgents: new Map(),
     subAgentCostUSD: 0.1,
+    advisorCalls: 0,
+    advisorCostUSD: 0,
     missing: false,
     ...overrides,
   };
@@ -162,6 +164,31 @@ describe("backup/service", () => {
       (row) => row.session_id === "session-2",
     )!;
     expect(unmappedSnapshot.account_id).toBeNull();
+  });
+
+  test("snapshot stores advisor_calls and advisor_cost_usd from the session aggregate", async () => {
+    const transcriptPath = await writeTranscript(
+      SLUG_MAPPED,
+      "session-1",
+      "content",
+    );
+    const store = fakeStore([
+      makeSession("session-1", SLUG_MAPPED, transcriptPath, {
+        advisorCalls: 3,
+        advisorCostUSD: 0.25,
+      }),
+    ]);
+    const service = new BackupService(db, store, config);
+
+    await service.run("manual");
+
+    const row = db
+      .prepare(
+        "SELECT advisor_calls, advisor_cost_usd FROM session_snapshots WHERE session_id = ?",
+      )
+      .get("session-1") as { advisor_calls: number; advisor_cost_usd: number };
+    expect(row.advisor_calls).toBe(3);
+    expect(row.advisor_cost_usd).toBeCloseTo(0.25, 10);
   });
 
   test("rejects a concurrent run while one is already in progress", async () => {

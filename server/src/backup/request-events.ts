@@ -13,8 +13,8 @@ function getInsertStmt(db: Database.Database): Database.Statement {
           input_tokens, output_tokens, cache_read_tokens,
           cache_write_5m_tokens, cache_write_1h_tokens, cost_usd,
           rate_input, rate_output, rate_cache_read, rate_cache_write_5m,
-          rate_cache_write_1h, pricing_source, dedupe_key)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          rate_cache_write_1h, pricing_source, dedupe_key, kind)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(session_id, agent_id, dedupe_key) DO UPDATE SET
          model = excluded.model,
          input_tokens = excluded.input_tokens,
@@ -28,7 +28,8 @@ function getInsertStmt(db: Database.Database): Database.Statement {
          rate_cache_read = excluded.rate_cache_read,
          rate_cache_write_5m = excluded.rate_cache_write_5m,
          rate_cache_write_1h = excluded.rate_cache_write_1h,
-         pricing_source = excluded.pricing_source`,
+         pricing_source = excluded.pricing_source,
+         kind = excluded.kind`,
     );
     insertStmts.set(db, stmt);
   }
@@ -67,5 +68,6 @@ export function insertRequestEvent(
     event.rateCacheWrite1h ?? null,
     event.pricingSource ?? null,
     event.dedupeKey,
+    event.kind,
   );
 }

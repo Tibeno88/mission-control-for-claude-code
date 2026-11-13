@@ -204,6 +204,7 @@ describe("insertRequestEvent", () => {
       rateOutput: 5e-5,
       pricingSource: "embedded",
       dedupeKey: "msg_A",
+      kind: "message",
       ...overrides,
     };
   }
@@ -308,5 +309,33 @@ describe("insertRequestEvent", () => {
     expect(rows[0]!.rate_input).toBe(2e-5);
     expect(rows[0]!.account_id).toBe(Number(accountId));
     expect(rows[0]!.ts).toBe("2026-08-24T10:00:00.000Z");
+  });
+
+  test("stores kind 'advisor' for an advisor event and 'message' for a regular one", () => {
+    insertRequestEvent(
+      db,
+      makeEvent({ kind: "advisor", dedupeKey: "msg_A#advisor0" }),
+    );
+    insertRequestEvent(db, makeEvent({ kind: "message", dedupeKey: "msg_A" }));
+
+    const rows = db
+      .prepare(
+        "SELECT dedupe_key, kind FROM request_events ORDER BY dedupe_key",
+      )
+      .all() as Array<{ dedupe_key: string; kind: string }>;
+    expect(rows).toEqual([
+      { dedupe_key: "msg_A", kind: "message" },
+      { dedupe_key: "msg_A#advisor0", kind: "advisor" },
+    ]);
+  });
+
+  test("upsert rewrites kind on re-emit", () => {
+    insertRequestEvent(db, makeEvent({ kind: "message" }));
+    insertRequestEvent(db, makeEvent({ kind: "advisor" }));
+
+    const rows = db.prepare("SELECT kind FROM request_events").all() as Array<{
+      kind: string;
+    }>;
+    expect(rows).toEqual([{ kind: "advisor" }]);
   });
 });

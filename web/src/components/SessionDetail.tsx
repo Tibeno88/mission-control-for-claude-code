@@ -147,6 +147,12 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
           <dt>PROMPTS</dt>
           <dd>{session.prompts}</dd>
         </div>
+        {session.advisorCalls > 0 && (
+          <div className="meta-row">
+            <dt>ADVISOR</dt>
+            <dd>{session.advisorCalls}</dd>
+          </div>
+        )}
         {session.startedAt !== undefined && (
           <div className="meta-row">
             <dt>UPTIME</dt>

@@ -188,6 +188,120 @@ function userPromptLine(text: string): string {
   });
 }
 
+const ADVISOR_MESSAGE_LINE = JSON.stringify({
+  type: "assistant",
+  timestamp: "2026-11-13T10:00:00.000Z",
+  sessionId: "s1",
+  requestId: "req_1",
+  message: {
+    id: "msg_1",
+    model: "claude-sonnet-5-5",
+    content: [
+      { type: "server_tool_use", id: "srvtoolu_1", name: "advisor", input: {} },
+    ],
+    usage: {
+      input_tokens: 4,
+      output_tokens: 300,
+      cache_read_input_tokens: 2000,
+      cache_creation_input_tokens: 150,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 0,
+        ephemeral_1h_input_tokens: 100,
+      },
+      iterations: [
+        {
+          type: "message",
+          input_tokens: 2,
+          output_tokens: 100,
+          cache_read_input_tokens: 1000,
+          cache_creation_input_tokens: 100,
+          cache_creation: {
+            ephemeral_5m_input_tokens: 0,
+            ephemeral_1h_input_tokens: 100,
+          },
+        },
+        {
+          type: "advisor_message",
+          model: "claude-opus-5-5",
+          input_tokens: 5000,
+          output_tokens: 400,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_creation: {
+            ephemeral_5m_input_tokens: 0,
+            ephemeral_1h_input_tokens: 0,
+          },
+        },
+        {
+          type: "message",
+          input_tokens: 2,
+          output_tokens: 200,
+          cache_read_input_tokens: 1000,
+          cache_creation_input_tokens: 50,
+          cache_creation: {
+            ephemeral_5m_input_tokens: 50,
+            ephemeral_1h_input_tokens: 0,
+          },
+        },
+      ],
+    },
+  },
+});
+
+describe("advisor iterations", () => {
+  test("sums executor iterations and extracts the advisor iteration", () => {
+    const entry = parseLine(ADVISOR_MESSAGE_LINE);
+    expect(entry?.usage).toEqual({
+      inputTokens: 4,
+      outputTokens: 300,
+      cacheReadTokens: 2000,
+      cacheWrite5mTokens: 50,
+      cacheWrite1hTokens: 100,
+    });
+    expect(entry?.advisor).toEqual([
+      {
+        model: "claude-opus-5-5",
+        usage: {
+          inputTokens: 5000,
+          outputTokens: 400,
+          cacheReadTokens: 0,
+          cacheWrite5mTokens: 0,
+          cacheWrite1hTokens: 0,
+        },
+      },
+    ]);
+    expect(entry?.advisorCalls).toBe(1);
+  });
+
+  test("leaves a line without iterations parsed as before", () => {
+    const entry = parseLine(assistantLine());
+    expect(entry?.usage?.outputTokens).toBe(1515);
+    expect(entry?.advisor).toBeUndefined();
+    expect(entry?.advisorCalls).toBeUndefined();
+  });
+
+  test("uses the summed iterations when top-level usage is all zeros", () => {
+    const raw = JSON.parse(ADVISOR_MESSAGE_LINE);
+    raw.message.usage = {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      iterations: raw.message.usage.iterations,
+    };
+    const entry = parseLine(JSON.stringify(raw));
+    expect(entry?.usage?.outputTokens).toBe(300);
+    expect(entry?.usage?.inputTokens).toBe(4);
+  });
+
+  test("falls back to the message model when the advisor iteration has none", () => {
+    const raw = JSON.parse(ADVISOR_MESSAGE_LINE);
+    delete raw.message.usage.iterations[1].model;
+    const entry = parseLine(JSON.stringify(raw));
+    expect(entry?.advisor?.[0]?.model).toBe("claude-sonnet-5-5");
+  });
+});
+
 describe("snippet", () => {
   test("collapses whitespace and truncates", () => {
     expect(snippet("a   b\n\nc", 100)).toBe("a b c");

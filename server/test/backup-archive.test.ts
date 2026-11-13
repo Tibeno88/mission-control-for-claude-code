@@ -25,6 +25,8 @@ function makeSession(transcriptPath: string): SessionAgg {
     costUSD: 0,
     subAgents: new Map(),
     subAgentCostUSD: 0,
+    advisorCalls: 0,
+    advisorCostUSD: 0,
     missing: false,
   };
 }

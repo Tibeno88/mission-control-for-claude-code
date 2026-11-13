@@ -61,6 +61,24 @@ describe("backup/db", () => {
     }).not.toThrow();
   });
 
+  test("adds the advisor and kind columns and keeps them across re-opens", () => {
+    const first = openDb(dbPath);
+    first.close();
+    const db = openDb(dbPath);
+
+    const columnsOf = (table: string): string[] =>
+      (
+        db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+          name: string;
+        }>
+      ).map((col) => col.name);
+    expect(columnsOf("request_events")).toContain("kind");
+    expect(columnsOf("session_snapshots")).toEqual(
+      expect.arrayContaining(["advisor_calls", "advisor_cost_usd"]),
+    );
+    db.close();
+  });
+
   test("getBackupConfig returns defaults when backup_config is empty", () => {
     const db = openDb(dbPath);
     const fallbackDir = path.join(root, "fallback-archives");

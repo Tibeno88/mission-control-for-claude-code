@@ -33,7 +33,7 @@ authentification** — voir [Sécurité](#sécurité).
 
 | Prérequis                | Détail                                                                                                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Node.js ≥ 22.12**      | `node -v`. Testé en CI sur Node 22.12 et 26.                                                                                                              |
+| **Node.js ≥ 22.14**      | `node -v`. Testé en CI sur Node 22.14 et 26.                                                                                                              |
 | **Yarn 4**               | Fourni par corepack : `npm install -g corepack` (Node ≥ 25 ne l'embarque plus) puis `corepack enable`. Pas de `npm install` (Yarn PnP).                   |
 | **Réseau**               | Nécessaire à la première installation (téléchargement des dépendances) ; l'app fonctionne ensuite hors ligne.                                             |
 | **Toolchain C++**        | Pour `better-sqlite3` si aucun binaire pré-compilé n'existe pour la plateforme : `sudo apt install build-essential python3`.                              |

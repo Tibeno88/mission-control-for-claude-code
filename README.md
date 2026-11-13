@@ -32,7 +32,7 @@ The server listens only on `127.0.0.1` and exposes **no authentication** — see
 
 | Prerequisite                 | Details                                                                                                                     |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Node.js ≥ 22.12**          | `node -v`. Tested in CI on Node 22.12 and 26.                                                                               |
+| **Node.js ≥ 22.14**          | `node -v`. Tested in CI on Node 22.14 and 26.                                                                               |
 | **Yarn 4**                   | Provided by corepack: `npm install -g corepack`, then `corepack enable`. Do not install dependencies with `npm` (Yarn PnP). |
 | **Network**                  | Required for the first installation (downloading dependencies); the app works offline afterwards.                           |
 | **C++ toolchain**            | Needed for `better-sqlite3` if no prebuilt binary exists for the platform: `sudo apt install build-essential python3`.      |

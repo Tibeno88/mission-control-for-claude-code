@@ -117,7 +117,7 @@ dans \`README.fr.md\` (English: \`README.md\`).
 
 ## Prérequis
 
-- **Node.js >= 22.12** (\`node -v\`)
+- **Node.js >= 22.14** (\`node -v\`)
 - **Yarn 4** via corepack : \`npm install -g corepack\` puis \`corepack enable\`
 - Une **connexion réseau** pour la première installation (téléchargement des
   dépendances)

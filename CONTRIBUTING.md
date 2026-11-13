@@ -4,7 +4,7 @@ Thanks for your interest in Mission Control for Claude Code. Issues and pull req
 
 ## Prerequisites
 
-- Node.js 22.12 or later (CI tests 22.12 and 26).
+- Node.js 22.14 or later (CI tests 22.14 and 26).
 - Yarn 4, enabled with `npm install -g corepack` (Node 25+ no longer bundles corepack), then `corepack enable`. The repo uses Yarn Plug'n'Play, so do not use npm.
 - A C++ toolchain may be needed to build `better-sqlite3` if no prebuilt binary exists. On Debian/Ubuntu: `sudo apt install build-essential python3`.
 - Claude Code installed, so that `~/.claude/` contains real session data to test against.

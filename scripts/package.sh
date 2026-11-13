@@ -117,8 +117,8 @@ dans \`README.fr.md\` (English: \`README.md\`).
 
 ## Prérequis
 
-- **Node.js >= 20** (\`node -v\`)
-- **Yarn 4** via corepack : \`corepack enable\`
+- **Node.js >= 22.12** (\`node -v\`)
+- **Yarn 4** via corepack : \`npm install -g corepack\` puis \`corepack enable\`
 - Une **connexion réseau** pour la première installation (téléchargement des
   dépendances)
 - De quoi compiler un module natif (\`better-sqlite3\`) si aucun binaire
@@ -130,6 +130,7 @@ dans \`README.fr.md\` (English: \`README.md\`).
 ## Installation
 
 \`\`\`bash
+npm install -g corepack  # Node >= 25 n'embarque plus corepack
 corepack enable          # active Yarn 4 (une seule fois par machine)
 yarn install             # installe les dépendances
 yarn build               # compile le serveur et l'UI

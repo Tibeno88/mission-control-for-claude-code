@@ -32,8 +32,8 @@ The server listens only on `127.0.0.1` and exposes **no authentication** — see
 
 | Prerequisite                 | Details                                                                                                                     |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Node.js ≥ 20**             | `node -v`. The repository is tested on Node 24.                                                                             |
-| **Yarn 4**                   | Provided by corepack: `corepack enable`. Do not use `npm` (the project uses Yarn PnP).                                      |
+| **Node.js ≥ 22.12**          | `node -v`. Tested in CI on Node 22.12 and 26.                                                                               |
+| **Yarn 4**                   | Provided by corepack: `npm install -g corepack`, then `corepack enable`. Do not install dependencies with `npm` (Yarn PnP). |
 | **Network**                  | Required for the first installation (downloading dependencies); the app works offline afterwards.                           |
 | **C++ toolchain**            | Needed for `better-sqlite3` if no prebuilt binary exists for the platform: `sudo apt install build-essential python3`.      |
 | **Claude Code**              | Installed and used at least once: without `~/.claude/projects/` or `~/.claude/sessions/`, the app starts but shows nothing. |
@@ -46,6 +46,7 @@ The server listens only on `127.0.0.1` and exposes **no authentication** — see
 ```bash
 git clone https://github.com/Tibeno88/mission-control-for-claude-code.git
 cd mission-control-for-claude-code
+npm install -g corepack   # Node ≥ 25 no longer bundles corepack
 corepack enable
 yarn install
 ```
@@ -57,6 +58,7 @@ Each version is published on the [releases page](https://github.com/Tibeno88/mis
 ```bash
 unzip mission-control-for-claude-code-<version>.zip
 cd mission-control-for-claude-code-<version>
+npm install -g corepack   # Node ≥ 25 no longer bundles corepack
 corepack enable
 yarn install
 yarn build
@@ -545,18 +547,18 @@ output yourself.
 
 ## Troubleshooting
 
-| Symptom                                  | Probable cause                                            | Check / fix                                                                   |
-| ---------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ERR_MODULE_NOT_FOUND` at startup        | `node` launched without the Yarn PnP runtime              | Use `yarn start` (or `yarn node server/dist/server.js`)                       |
-| `yarn: command not found`                | Corepack not enabled                                      | `corepack enable`, then `yarn -v` (should show `4.x`)                         |
-| `EADDRINUSE` on 4517                     | An instance is already running, or the port is taken      | `cmc-status`, `ss -tlnp \| grep 4517`, or change `CMC_PORT`                   |
-| `UPLINK LOST` in the header              | Server stopped, or UI open on the wrong port              | In dev, open `:5173` (not `:4517`); check `cmc-status`                        |
-| No session displayed                     | Wrong `CMC_CLAUDE_DIR`, or scan window too short          | `ls ~/.claude/projects`; increase `CMC_SCAN_DAYS`                             |
-| No notifications                         | Permission denied for the site                            | Crossed-out bell = `denied`: unblock it in the browser settings               |
-| `better-sqlite3` install fails           | No prebuilt binary for the platform                       | `sudo apt install build-essential python3`, then `yarn install`               |
-| Plannotator counter always at zero       | Plannotator absent, or non-standard data directory        | Optional by nature; otherwise set `CMC_PLANNOTATOR_DIR`                       |
-| Costs look wrong                         | Pricing table not refreshed (offline at startup)          | Logs show `[pricing] refreshed N claude models`; otherwise the local table is used |
-| `403 forbidden host` / `forbidden origin` | Access via a host name other than `127.0.0.1`/`localhost` (alias, IP, proxy) | Open `http://127.0.0.1:4517` (or `:5173` in dev)                  |
+| Symptom                                   | Probable cause                                                               | Check / fix                                                                          |
+| ----------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `ERR_MODULE_NOT_FOUND` at startup         | `node` launched without the Yarn PnP runtime                                 | Use `yarn start` (or `yarn node server/dist/server.js`)                              |
+| `yarn: command not found`                 | Corepack not enabled                                                         | `npm install -g corepack`, then `corepack enable`, then `yarn -v` (must print `4.x`) |
+| `EADDRINUSE` on 4517                      | An instance is already running, or the port is taken                         | `cmc-status`, `ss -tlnp \| grep 4517`, or change `CMC_PORT`                          |
+| `UPLINK LOST` in the header               | Server stopped, or UI open on the wrong port                                 | In dev, open `:5173` (not `:4517`); check `cmc-status`                               |
+| No session displayed                      | Wrong `CMC_CLAUDE_DIR`, or scan window too short                             | `ls ~/.claude/projects`; increase `CMC_SCAN_DAYS`                                    |
+| No notifications                          | Permission denied for the site                                               | Crossed-out bell = `denied`: unblock it in the browser settings                      |
+| `better-sqlite3` install fails            | No prebuilt binary for the platform                                          | `sudo apt install build-essential python3`, then `yarn install`                      |
+| Plannotator counter always at zero        | Plannotator absent, or non-standard data directory                           | Optional by nature; otherwise set `CMC_PLANNOTATOR_DIR`                              |
+| Costs look wrong                          | Pricing table not refreshed (offline at startup)                             | Logs show `[pricing] refreshed N claude models`; otherwise the local table is used   |
+| `403 forbidden host` / `forbidden origin` | Access via a host name other than `127.0.0.1`/`localhost` (alias, IP, proxy) | Open `http://127.0.0.1:4517` (or `:5173` in dev)                                     |
 
 ## Tests & quality
 

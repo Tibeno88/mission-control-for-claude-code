@@ -31,14 +31,14 @@ authentification** — voir [Sécurité](#sécurité).
 
 ## Prérequis
 
-| Prérequis                | Détail                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Node.js ≥ 20**         | `node -v`. Le dépôt est testé sur Node 24.                                                                                      |
-| **Yarn 4**               | Fourni par corepack : `corepack enable`. Ne pas utiliser `npm` (le projet est en Yarn PnP).                                     |
-| **Réseau**               | Nécessaire à la première installation (téléchargement des dépendances) ; l'app fonctionne ensuite hors ligne.                   |
-| **Toolchain C++**        | Pour `better-sqlite3` si aucun binaire pré-compilé n'existe pour la plateforme : `sudo apt install build-essential python3`.    |
-| **Claude Code**          | Installé et utilisé au moins une fois : sans `~/.claude/projects/` ni `~/.claude/sessions/`, l'app démarre mais n'affiche rien. |
-| **Plannotator** _(opt.)_ | Recommandé : ajoute la visualisation des UI Plannotator actives. Voir [Plannotator](#plannotator-optionnel).                    |
+| Prérequis                | Détail                                                                                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Node.js ≥ 22.12**      | `node -v`. Testé en CI sur Node 22.12 et 26.                                                                                                              |
+| **Yarn 4**               | Fourni par corepack : `npm install -g corepack` (Node ≥ 25 ne l'embarque plus) puis `corepack enable`. Pas de `npm install` (Yarn PnP).                   |
+| **Réseau**               | Nécessaire à la première installation (téléchargement des dépendances) ; l'app fonctionne ensuite hors ligne.                                             |
+| **Toolchain C++**        | Pour `better-sqlite3` si aucun binaire pré-compilé n'existe pour la plateforme : `sudo apt install build-essential python3`.                              |
+| **Claude Code**          | Installé et utilisé au moins une fois : sans `~/.claude/projects/` ni `~/.claude/sessions/`, l'app démarre mais n'affiche rien.                           |
+| **Plannotator** _(opt.)_ | Recommandé : ajoute la visualisation des UI Plannotator actives. Voir [Plannotator](#plannotator-optionnel).                                              |
 
 ## Installation
 
@@ -47,6 +47,7 @@ authentification** — voir [Sécurité](#sécurité).
 ```bash
 git clone https://github.com/Tibeno88/mission-control-for-claude-code.git
 cd mission-control-for-claude-code
+npm install -g corepack   # Node ≥ 25 n'embarque plus corepack
 corepack enable
 yarn install
 ```
@@ -58,6 +59,7 @@ Chaque version est publiée sur la [page des releases](https://github.com/Tibeno
 ```bash
 unzip mission-control-for-claude-code-<version>.zip
 cd mission-control-for-claude-code-<version>
+npm install -g corepack   # Node ≥ 25 n'embarque plus corepack
 corepack enable
 yarn install
 yarn build
@@ -556,18 +558,18 @@ du processus.
 
 ## Dépannage
 
-| Symptôme                                 | Cause probable                                            | Vérification / correction                                                     |
-| ---------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ERR_MODULE_NOT_FOUND` au lancement      | `node` lancé sans le runtime Yarn PnP                     | Utiliser `yarn start` (ou `yarn node server/dist/server.js`)                  |
-| `yarn: command not found`                | Corepack non activé                                       | `corepack enable`, puis `yarn -v` (doit afficher `4.x`)                       |
-| `EADDRINUSE` sur 4517                    | Une instance tourne déjà, ou le port est pris             | `cmc-status`, `ss -tlnp \| grep 4517`, ou changer `CMC_PORT`                  |
-| `UPLINK LOST` dans l'en-tête             | Serveur arrêté, ou UI ouverte sur le mauvais port         | En dev, ouvrir `:5173` (pas `:4517`) ; vérifier `cmc-status`                  |
-| Aucune session affichée                  | Mauvais `CMC_CLAUDE_DIR`, ou fenêtre de scan trop courte  | `ls ~/.claude/projects` ; augmenter `CMC_SCAN_DAYS`                           |
-| Notifications absentes                   | Autorisation refusée pour le site                         | Cloche barrée = `denied` : débloquer dans les réglages du navigateur          |
-| Échec d'installation de `better-sqlite3` | Pas de binaire pré-compilé pour la plateforme             | `sudo apt install build-essential python3` puis `yarn install`                |
-| Compteur Plannotator toujours à zéro     | Plannotator absent, ou répertoire de données non standard | Optionnel par nature ; sinon définir `CMC_PLANNOTATOR_DIR`                    |
-| Coûts qui semblent faux                  | Table de pricing non rafraîchie (hors ligne au démarrage) | Les logs indiquent `[pricing] refreshed N claude models` ; sinon table locale |
-| `403 forbidden host` / `forbidden origin` | Accès via un autre nom d'hôte que `127.0.0.1`/`localhost` (alias, IP, proxy) | Ouvrir `http://127.0.0.1:4517` (ou `:5173` en dev)                            |
+| Symptôme                                  | Cause probable                                                               | Vérification / correction                                                               |
+| ----------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `ERR_MODULE_NOT_FOUND` au lancement       | `node` lancé sans le runtime Yarn PnP                                        | Utiliser `yarn start` (ou `yarn node server/dist/server.js`)                            |
+| `yarn: command not found`                 | Corepack non activé                                                          | `npm install -g corepack`, puis `corepack enable`, puis `yarn -v` (doit afficher `4.x`) |
+| `EADDRINUSE` sur 4517                     | Une instance tourne déjà, ou le port est pris                                | `cmc-status`, `ss -tlnp \| grep 4517`, ou changer `CMC_PORT`                            |
+| `UPLINK LOST` dans l'en-tête              | Serveur arrêté, ou UI ouverte sur le mauvais port                            | En dev, ouvrir `:5173` (pas `:4517`) ; vérifier `cmc-status`                            |
+| Aucune session affichée                   | Mauvais `CMC_CLAUDE_DIR`, ou fenêtre de scan trop courte                     | `ls ~/.claude/projects` ; augmenter `CMC_SCAN_DAYS`                                     |
+| Notifications absentes                    | Autorisation refusée pour le site                                            | Cloche barrée = `denied` : débloquer dans les réglages du navigateur                    |
+| Échec d'installation de `better-sqlite3`  | Pas de binaire pré-compilé pour la plateforme                                | `sudo apt install build-essential python3` puis `yarn install`                          |
+| Compteur Plannotator toujours à zéro      | Plannotator absent, ou répertoire de données non standard                    | Optionnel par nature ; sinon définir `CMC_PLANNOTATOR_DIR`                              |
+| Coûts qui semblent faux                   | Table de pricing non rafraîchie (hors ligne au démarrage)                    | Les logs indiquent `[pricing] refreshed N claude models` ; sinon table locale           |
+| `403 forbidden host` / `forbidden origin` | Accès via un autre nom d'hôte que `127.0.0.1`/`localhost` (alias, IP, proxy) | Ouvrir `http://127.0.0.1:4517` (ou `:5173` en dev)                                      |
 
 ## Tests & qualité
 

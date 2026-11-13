@@ -898,14 +898,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"claude-mission-control@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "claude-mission-control@workspace:."
-  dependencies:
-    concurrently: "npm:10.0.3"
-  languageName: unknown
-  linkType: soft
-
 "cliui@npm:^9.0.1":
   version: 9.0.1
   resolution: "cliui@npm:9.0.1"
@@ -2020,6 +2012,14 @@ __metadata:
   checksum: 10c0/5aad75ab0090b8266069c9aabe582c021ae53eb33c6c691054a13a45db3b4f91a7fb1bd79151e6b4e9e9a86727b522527c0a06ec7d45206b745d54cd3097bcec
   languageName: node
   linkType: hard
+
+"mission-control-for-claude-code@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "mission-control-for-claude-code@workspace:."
+  dependencies:
+    concurrently: "npm:10.0.3"
+  languageName: unknown
+  linkType: soft
 
 "ms@npm:^2.1.3":
   version: 2.1.3

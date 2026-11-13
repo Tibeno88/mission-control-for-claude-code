@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds the distributable source zip of Claude Mission Control.
+# Builds the distributable source zip of Mission Control for Claude Code.
 #
 # The staging area is always derived from git, so nothing gitignored
 # (node_modules/, logs/, .env*, dist/, CMC_DATA_DIR data) can leak into the
@@ -72,7 +72,7 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
   }
 
 VERSION="$(node -p "require('./package.json').version")"
-NAME="claude-mission-control-$VERSION"
+NAME="mission-control-for-claude-code-$VERSION"
 ARCHIVE="$OUT_DIR/$NAME.zip"
 
 STAGE="$(mktemp -d)"
@@ -109,7 +109,7 @@ done
 
 echo "==> writing INSTALL.md"
 cat > "$STAGE/$NAME/INSTALL.md" << EOF
-# Claude Mission Control — installation
+# Mission Control for Claude Code — installation
 
 Version $VERSION. Dashboard local de supervision des sessions Claude Code.
 La documentation complète (fonctionnalités, configuration, exploitation) est

@@ -185,7 +185,7 @@ async function main(): Promise<void> {
     { fetch: app.fetch, port: config.port, hostname: "127.0.0.1" },
     (info) => {
       console.log(
-        `[server] Claude Mission Control on http://127.0.0.1:${info.port}`,
+        `[server] Mission Control for Claude Code on http://127.0.0.1:${info.port}`,
       );
     },
   );

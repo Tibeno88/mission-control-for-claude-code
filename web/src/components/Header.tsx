@@ -91,7 +91,7 @@ export function Header({
         </svg>
         <div>
           <h1>
-            CLAUDE<span className="header-sep"> // </span>MISSION CONTROL
+            MISSION CONTROL<span className="header-sep"> // </span>CLAUDE CODE
           </h1>
           <p className="header-sub">LOCAL SESSION SUPERVISION GRID</p>
         </div>

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Claude Mission Control — alias shell prêts à l'emploi (bash & zsh).
+# Mission Control for Claude Code — alias shell prêts à l'emploi (bash & zsh).
 #
 # Deux façons de l'installer, au choix :
 #
 #   1) source direct, dans ~/.zshrc, ~/.bashrc ou votre fichier d'alias :
-#        source /chemin/vers/claude-mission-control/scripts/cmc-aliases.sh
+#        source /chemin/vers/mission-control-for-claude-code/scripts/cmc-aliases.sh
 #
 #   2) lien symbolique, chargé automatiquement par oh-my-zsh :
-#        ln -s /chemin/vers/claude-mission-control/scripts/cmc-aliases.sh \
+#        ln -s /chemin/vers/mission-control-for-claude-code/scripts/cmc-aliases.sh \
 #              "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/cmc-aliases.zsh"
 #
 # `cmc-help` liste les commandes disponibles. Ce fichier est sourçable plusieurs
@@ -161,7 +161,7 @@ cmc-update() {
 cmc-cd() { cd "$CMC_DIR" || return 1; }
 
 cmc-help() {
-  printf 'Claude Mission Control — alias disponibles (racine : %s)\n\n' "$CMC_DIR"
+  printf 'Mission Control for Claude Code — alias disponibles (racine : %s)\n\n' "$CMC_DIR"
   printf '  cmc-start     demarre API + UI (mode dev) en tache de fond\n'
   printf '  cmc-stop      arrete tous les processus CMC\n'
   printf '  cmc-restart   stop puis start\n'

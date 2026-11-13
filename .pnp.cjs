@@ -11,7 +11,7 @@ const RAW_RUNTIME_STATE =
   ],\
   "dependencyTreeRoots": [\
     {\
-      "name": "claude-mission-control",\
+      "name": "mission-control-for-claude-code",\
       "reference": "workspace:."\
     },\
     {\
@@ -29,7 +29,7 @@ const RAW_RUNTIME_STATE =
   "fallbackExclusionList": [\
     ["@cmc/server", ["workspace:server"]],\
     ["@cmc/web", ["workspace:web"]],\
-    ["claude-mission-control", ["workspace:."]]\
+    ["mission-control-for-claude-code", ["workspace:."]]\
   ],\
   "fallbackPool": [\
   ],\
@@ -38,8 +38,8 @@ const RAW_RUNTIME_STATE =
       [null, {\
         "packageLocation": "./",\
         "packageDependencies": [\
-          ["claude-mission-control", "workspace:."],\
-          ["concurrently", "npm:10.0.3"]\
+          ["concurrently", "npm:10.0.3"],\
+          ["mission-control-for-claude-code", "workspace:."]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -1150,16 +1150,6 @@ const RAW_RUNTIME_STATE =
           ["chownr", "npm:3.0.0"]\
         ],\
         "linkType": "HARD"\
-      }]\
-    ]],\
-    ["claude-mission-control", [\
-      ["workspace:.", {\
-        "packageLocation": "./",\
-        "packageDependencies": [\
-          ["claude-mission-control", "workspace:."],\
-          ["concurrently", "npm:10.0.3"]\
-        ],\
-        "linkType": "SOFT"\
       }]\
     ]],\
     ["cliui", [\
@@ -2344,6 +2334,16 @@ const RAW_RUNTIME_STATE =
           ["minizlib", "npm:3.1.0"]\
         ],\
         "linkType": "HARD"\
+      }]\
+    ]],\
+    ["mission-control-for-claude-code", [\
+      ["workspace:.", {\
+        "packageLocation": "./",\
+        "packageDependencies": [\
+          ["concurrently", "npm:10.0.3"],\
+          ["mission-control-for-claude-code", "workspace:."]\
+        ],\
+        "linkType": "SOFT"\
       }]\
     ]],\
     ["ms", [\

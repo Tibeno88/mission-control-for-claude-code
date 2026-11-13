@@ -1,5 +1,5 @@
 {
-  "name": "claude-mission-control",
+  "name": "mission-control-for-claude-code",
   "version": "1.4.0",
   "private": true,
   "description": "Local web dashboard to supervise Claude Code sessions in near real-time (fleet status, consumption metrics).",

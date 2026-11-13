@@ -1,4 +1,4 @@
-# Claude Mission Control
+# Mission Control for Claude Code
 
 Dashboard web **100 % local** de supervision des sessions Claude Code, en quasi
 temps réel, avec une esthétique HUD sci-fi. Il lit les fichiers que Claude Code
@@ -39,8 +39,8 @@ authentification** — voir [Sécurité](#sécurité).
 ### Depuis le dépôt
 
 ```bash
-git clone git@github.com:Tibeno88/claude-mission-control.git
-cd claude-mission-control
+git clone https://github.com/Tibeno88/mission-control-for-claude-code.git
+cd mission-control-for-claude-code
 corepack enable
 yarn install
 ```
@@ -51,8 +51,8 @@ Le zip contient les sources, pas les dépendances : l'installation est identique
 au clone, sans l'étape `git clone`.
 
 ```bash
-unzip claude-mission-control-<version>.zip
-cd claude-mission-control-<version>
+unzip mission-control-for-claude-code-<version>.zip
+cd mission-control-for-claude-code-<version>
 corepack enable
 yarn install
 yarn build
@@ -62,7 +62,7 @@ yarn start        # http://127.0.0.1:4517
 Vérifiez au préalable l'intégrité de l'archive avec la somme sha256 transmise :
 
 ```bash
-sha256sum claude-mission-control-<version>.zip
+sha256sum mission-control-for-claude-code-<version>.zip
 ```
 
 ## Démarrage & cycle de vie
@@ -112,11 +112,11 @@ Deux façons de l'installer, au choix :
 
 ```bash
 # 1) source direct — dans ~/.zshrc, ~/.bashrc ou votre fichier d'alias
-source /chemin/vers/claude-mission-control/scripts/cmc-aliases.sh
+source /chemin/vers/mission-control-for-claude-code/scripts/cmc-aliases.sh
 
 # 2) lien symbolique — chargé automatiquement par oh-my-zsh
 #    (oh-my-zsh source tout *.zsh de custom/, d'où l'extension du lien)
-ln -s /chemin/vers/claude-mission-control/scripts/cmc-aliases.sh \
+ln -s /chemin/vers/mission-control-for-claude-code/scripts/cmc-aliases.sh \
       "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/cmc-aliases.zsh"
 ```
 
@@ -603,7 +603,7 @@ scripts/
 ## Distribution
 
 ```bash
-yarn package                        # dist-pkg/claude-mission-control-<version>.zip
+yarn package                        # dist-pkg/mission-control-for-claude-code-<version>.zip
 bash scripts/package.sh --worktree  # inclut aussi les modifications non committées
 ```
 

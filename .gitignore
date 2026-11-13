@@ -16,3 +16,7 @@ dist-pkg/
 .yarn/install-state.gz
 .yarn/unplugged/
 
+
+# Local-only files (agent config, private notes)
+.claude/
+*.local.*

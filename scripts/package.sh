@@ -113,7 +113,7 @@ cat > "$STAGE/$NAME/INSTALL.md" << EOF
 
 Version $VERSION. Dashboard local de supervision des sessions Claude Code.
 La documentation complète (fonctionnalités, configuration, exploitation) est
-dans \`README.md\`.
+dans \`README.fr.md\` (English: \`README.md\`).
 
 ## Prérequis
 
@@ -145,7 +145,7 @@ authentification : ne le publiez pas sur un réseau.
 source "\$(pwd)/scripts/cmc-aliases.sh"   # puis : cmc-help
 \`\`\`
 
-Voir la section « Alias shell » du \`README.md\` pour une installation permanente.
+Voir la section « Alias shell » du \`README.fr.md\` pour une installation permanente.
 EOF
 
 echo "==> zipping"
